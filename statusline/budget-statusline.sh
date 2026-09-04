@@ -20,7 +20,7 @@
 #        that spend draws against the next workday's slice.
 #   month: monthly spend vs the monthly limit. Past the limit the bar pegs,
 #        the percent keeps counting, and a coral "+$N" shows the overage
-#        beside it.
+#        (e.g. a month where the limit got raised on request).
 #
 # The monthly limit is CLAUDE_BUDGET_MONTHLY_LIMIT if set (your own target,
 # even when the org sets a higher one), else the limit in the usage response.
@@ -62,81 +62,88 @@ dow_num() {  # mon..sun -> 1..7 (matches date +%u); empty if unknown
 
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 
-# Print "YYYY-MM-DD<TAB>name" for every rule in $1 evaluated for year $2.
-# Observed shifts may land in an adjacent month or year (Jan 1 -> Dec 31).
-holidays_for_year() {
-    local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0
-    local obs_sat=prev obs_sun=next tok pol used=$'\n' deferred="" step i
+# Evaluate every rule in $1 for each year in $2..: prints "YYYY-MM-DD<TAB>rule
+# year<TAB>name". Weekday holidays are placed first across ALL the years, then
+# weekend ones are shifted in date order onto working days not already taken,
+# so chaining works across New Year's (a Saturday Jan 1 shifted back onto a
+# Dec 31 the file also lists moves on to Dec 30; a Sunday Dec 31 shifted
+# forward past Jan 1 lands on Jan 2). Callers pass the neighbouring years.
+holidays_for_years() {
+    local conf="$1" y line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno
+    local obs_sat=prev obs_sun=next tok pol used=$'\n' deferred="" step i warn="${HOLIDAYS_VERBOSE:-}"
+    shift
     [ -n "$conf" ] && [ -r "$conf" ] || return 0
-    # Two passes: weekday holidays are placed first, then weekend ones are
-    # shifted onto working days not already taken (file order among those).
-    while IFS= read -r line || [ -n "$line" ]; do
-        lineno=$((lineno + 1))
-        line="${line%$'\r'}"
-        line="${line%%#*}"
-        read -r kind f1 f2 f3 rest <<< "$line"
-        [ -n "$kind" ] || continue
-        d=""; name=""
-        case "$kind" in
-            observe)
-                for tok in $f1 $f2 $f3 $rest; do
-                    case "$tok" in
-                        none) obs_sat=none; obs_sun=none ;;
-                        sat=prev|sat=next|sat=none) obs_sat="${tok#sat=}" ;;
-                        sun=prev|sun=next|sun=none) obs_sun="${tok#sun=}" ;;
-                        *) [ -n "${HOLIDAYS_VERBOSE:-}" ] && echo "holidays: line $lineno: unknown observe option '$tok'" >&2 ;;
-                    esac
-                done
-                continue ;;
-            fixed)
-                name="$f2 $f3 $rest"
-                case "$f1" in [0-9][0-9]-[0-9][0-9]|[0-9]-[0-9][0-9]|[0-9][0-9]-[0-9]|[0-9]-[0-9]) ;; *) f1="" ;; esac
-                if [ -n "$f1" ] && read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
-                    if [ "$dow" -ge 6 ]; then
-                        # Weekend: decided in pass 2, once the whole file (incl.
-                        # any later "observe" line) has been read.
-                        name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
-                        deferred="$deferred$d	$dow	${name:-holiday}"$'\n'
-                        continue
-                    fi
-                fi ;;
-            nth)
-                name="$rest"; n="$f1"; dow=$(dow_num "$f2"); mm="$f3"
-                if is_int "$n" && [ "$n" -ge 1 ] && [ -n "$dow" ] && is_int "$mm" \
-                   && first=$(date -d "$y-$mm-01" +%u 2>/dev/null) && [ -n "$first" ]; then
-                    dim=$(date -d "$y-$mm-01 +1 month -1 day" +%d)
-                    n=$((10#$n))
-                    day=$(( 1 + (dow - first + 7) % 7 + 7 * (n - 1) ))
-                    [ "$day" -le "$((10#$dim))" ] && d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
-                fi ;;
-            last)
-                name="$f3 $rest"; dow=$(dow_num "$f1"); mm="$f2"
-                if [ -n "$dow" ] && is_int "$mm" \
-                   && read -r ld ldow < <(date -d "$y-$mm-01 +1 month -1 day" +'%d %u' 2>/dev/null) && [ -n "$ldow" ]; then
-                    day=$(( 10#$ld - (ldow - dow + 7) % 7 ))
-                    d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
-                fi ;;
-            date)
-                name="$f2 $f3 $rest"
-                case "$f1" in
-                    "$y"-[0-1][0-9]-[0-3][0-9]) date -d "$f1" >/dev/null 2>&1 && d="$f1" ;;
-                    [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) continue ;;  # another year: fine, not ours
-                esac ;;
-        esac
-        if [ -z "$d" ]; then
-            [ -n "${HOLIDAYS_VERBOSE:-}" ] && echo "holidays: skipping line $lineno: $line" >&2
-            continue
-        fi
-        name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
-        used="$used$d"$'\n'
-        printf '%s\t%s\n' "$d" "${name:-holiday}"
-    done < "$conf"
-    # Pass 2: shift weekend holidays to the nearest free working day.
+    for y in "$@"; do
+        lineno=0
+        while IFS= read -r line || [ -n "$line" ]; do
+            lineno=$((lineno + 1))
+            line="${line%$'\r'}"
+            line="${line%%#*}"
+            read -r kind f1 f2 f3 rest <<< "$line"
+            [ -n "$kind" ] || continue
+            d=""; name=""
+            case "$kind" in
+                observe)
+                    for tok in $f1 $f2 $f3 $rest; do
+                        case "$tok" in
+                            none) obs_sat=none; obs_sun=none ;;
+                            sat=prev|sat=next|sat=none) obs_sat="${tok#sat=}" ;;
+                            sun=prev|sun=next|sun=none) obs_sun="${tok#sun=}" ;;
+                            *) [ -n "$warn" ] && echo "holidays: line $lineno: unknown observe option '$tok'" >&2 ;;
+                        esac
+                    done
+                    continue ;;
+                fixed)
+                    name="$f2 $f3 $rest"
+                    case "$f1" in [0-9][0-9]-[0-9][0-9]|[0-9]-[0-9][0-9]|[0-9][0-9]-[0-9]|[0-9]-[0-9]) ;; *) f1="" ;; esac
+                    if [ -n "$f1" ] && read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
+                        if [ "$dow" -ge 6 ]; then
+                            # Weekend: decided in pass 2, once every year's
+                            # weekday holidays (and any later "observe") are known.
+                            name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
+                            deferred="$deferred$d	$dow	$y	${name:-holiday}"$'\n'
+                            continue
+                        fi
+                    fi ;;
+                nth)
+                    name="$rest"; n="$f1"; dow=$(dow_num "$f2"); mm="$f3"
+                    if is_int "$n" && [ "$n" -ge 1 ] && [ -n "$dow" ] && is_int "$mm" \
+                       && first=$(date -d "$y-$mm-01" +%u 2>/dev/null) && [ -n "$first" ]; then
+                        dim=$(date -d "$y-$mm-01 +1 month -1 day" +%d)
+                        n=$((10#$n))
+                        day=$(( 1 + (dow - first + 7) % 7 + 7 * (n - 1) ))
+                        [ "$day" -le "$((10#$dim))" ] && d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
+                    fi ;;
+                last)
+                    name="$f3 $rest"; dow=$(dow_num "$f1"); mm="$f2"
+                    if [ -n "$dow" ] && is_int "$mm" \
+                       && read -r ld ldow < <(date -d "$y-$mm-01 +1 month -1 day" +'%d %u' 2>/dev/null) && [ -n "$ldow" ]; then
+                        day=$(( 10#$ld - (ldow - dow + 7) % 7 ))
+                        d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
+                    fi ;;
+                date)
+                    name="$f2 $f3 $rest"
+                    case "$f1" in
+                        "$y"-[0-1][0-9]-[0-3][0-9]) date -d "$f1" >/dev/null 2>&1 && d="$f1" ;;
+                        [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) continue ;;  # another year: fine, not ours
+                    esac ;;
+            esac
+            if [ -z "$d" ]; then
+                [ -n "$warn" ] && echo "holidays: skipping line $lineno: $line" >&2
+                continue
+            fi
+            name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
+            used="$used$d"$'\n'
+            printf '%s\t%s\t%s\n' "$d" "$y" "${name:-holiday}"
+        done < "$conf"
+        warn=""   # report each bad line once, not once per year
+    done
+    # Pass 2: shift weekend holidays, earliest first, to the nearest free working day.
     [ -n "$deferred" ] || return 0
-    while IFS=$'\t' read -r d dow name; do
+    while IFS=$'\t' read -r d dow y name; do
         [ -n "$d" ] || continue
         pol=$obs_sun; [ "$dow" = 6 ] && pol=$obs_sat
-        if [ "$pol" = none ]; then printf '%s\t%s\n' "$d" "$name"; continue; fi
+        if [ "$pol" = none ]; then printf '%s\t%s\t%s\n' "$d" "$y" "$name"; continue; fi
         step="+1 day"; [ "$pol" = prev ] && step="-1 day"
         for i in 1 2 3 4 5 6 7; do
             d=$(date -d "$d $step" +%F)
@@ -144,26 +151,26 @@ holidays_for_year() {
             [ "$dow" -le 5 ] && case "$used" in *$'\n'"$d"$'\n'*) ;; *) break ;; esac
         done
         used="$used$d"$'\n'
-        printf '%s\t%s\n' "$d" "$name"
-    done <<< "$deferred"
+        printf '%s\t%s\t%s\n' "$d" "$y" "$name"
+    done < <(printf '%s' "$deferred" | sort)
 }
 
 # Days-of-month (space separated) that are holidays in $1-$2 (YYYY MM).
-# Rules for the adjacent years are included so observed shifts across
-# New Year's are seen. Any failure -> empty (plain weekday counting).
+# Any failure -> empty (plain weekday counting).
 holidays_in_month() {
-    local y="$1" m="$2" yy
-    for yy in $((10#$y - 1)) $((10#$y)) $((10#$y + 1)); do
-        holidays_for_year "$HOLIDAY_RULES" "$yy"
-    done 2>/dev/null | awk -F'\t' -v ym="$y-$m" 'substr($1,1,7)==ym {print substr($1,9,2)+0}' \
-       | sort -un | tr '\n' ' '
+    local y=$((10#$1)) m="$2"
+    holidays_for_years "$HOLIDAY_RULES" $((y - 1)) $y $((y + 1)) 2>/dev/null \
+        | awk -F'\t' -v ym="$1-$m" 'substr($1,1,7)==ym {print substr($1,9,2)+0}' \
+        | sort -un | tr '\n' ' '
 }
 
 if [ "${1:-}" = "--holidays" ]; then
     [ -n "$HOLIDAY_RULES" ] || { echo "holidays: disabled (CLAUDE_BUDGET_HOLIDAYS=$CLAUDE_BUDGET_HOLIDAYS)" >&2; exit 0; }
     [ -r "$HOLIDAY_RULES" ] || { echo "holidays: no rules file at $HOLIDAY_RULES (plain weekday counting)" >&2; exit 0; }
-    HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(bdate +%Y)}" \
-        | sort | while IFS=$'\t' read -r d name; do printf '%s %s %s\n' "$d" "$(date -d "$d" +%a)" "$name"; done
+    y=$((10#${2:-$(bdate +%Y)}))
+    HOLIDAYS_VERBOSE=1 holidays_for_years "$HOLIDAY_RULES" $((y - 1)) $y $((y + 1)) \
+        | awk -F'\t' -v y="$y" '$2==y' | sort \
+        | while IFS=$'\t' read -r d _ name; do printf '%s %s %s\n' "$d" "$(date -d "$d" +%a)" "$name"; done
     exit 0
 fi
 
@@ -272,8 +279,7 @@ fmt_money() {
 # The same data /usage renders: GET api.anthropic.com/api/oauth/usage with the
 # CLI's own OAuth token. .spend.used is the month-to-date dollars the page
 # shows and .spend.limit is the org's monthly cap — real billed numbers, so no
-# local token pricing to drift (local estimators tend to miss cache-write
-# rates and undercount).
+# local token pricing to drift.
 # The endpoint has no per-day figure, so today's spend is derived: the month
 # total the first time each day is seen becomes that day's baseline
 # (cache/statusline/budget-usage.daystart), and daily = month - baseline. Accurate from the first

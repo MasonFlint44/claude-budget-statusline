@@ -13,7 +13,8 @@ budget bars:
   the bar pegs and shows the overage.
 
 Both read the same numbers the `/usage` page shows, so there is no local token
-pricing to drift.
+pricing to drift. This is for organization or Team accounts with spend
+billing, where the `/usage` page shows dollars; see Prerequisites.
 
 > **Note on the data source.** The script calls `api.anthropic.com/api/oauth/usage`
 > with the CLI's own OAuth token — the same request the `/usage` command makes.
