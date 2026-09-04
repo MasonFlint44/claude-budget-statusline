@@ -39,9 +39,12 @@ HOLIDAY_RULES="${CLAUDE_BUDGET_HOLIDAYS:-$SCRIPT_DIR/config/holidays.conf}"
 #                           a fifth that the month lacks is skipped)
 #   last  DOW MM     name   last weekday of a month
 #   date  YYYY-MM-DD name   a one-off date (no weekend shift)
-#   observe nearest|monday|none   how a fixed date on a weekend is observed:
-#                           nearest = Sat->Fri, Sun->Mon (default, US federal);
-#                           monday = both -> following Monday; none = no shift
+#   observe sat=<prev|next|none> sun=<prev|next|none>   how a fixed date on a
+#                           weekend is observed; "next"/"prev" = the nearest
+#                           working day in that direction not already a
+#                           holiday (so Christmas + Boxing Day chain). Default
+#                           sat=prev sun=next (US federal). "observe none" =
+#                           no shift. Rules are placed top to bottom.
 # Lines that don't parse are skipped (reported on stderr by --holidays).
 
 dow_num() {  # mon..sun -> 1..7 (matches date +%u); empty if unknown
@@ -57,10 +60,11 @@ is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 # Print "YYYY-MM-DD<TAB>name" for every rule in $1 evaluated for year $2.
 # Observed shifts may land in an adjacent month or year (Jan 1 -> Dec 31).
 holidays_for_year() {
-    local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0 observe
+    local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0
+    local obs_sat=prev obs_sun=next tok pol used=$'\n' deferred="" step i
     [ -r "$conf" ] || return 0
-    observe=$(awk '$1=="observe"{o=$2} END{print o}' "$conf")
-    case "$observe" in nearest|monday|none) ;; *) observe=nearest ;; esac
+    # Two passes: weekday holidays are placed first, then weekend ones are
+    # shifted onto working days not already taken (file order among those).
     while IFS= read -r line || [ -n "$line" ]; do
         lineno=$((lineno + 1))
         line="${line%%#*}"
@@ -69,18 +73,25 @@ holidays_for_year() {
         d=""; name=""
         case "$kind" in
             observe)
-                case "$f1" in nearest|monday|none) ;; *)
-                    [ -n "${HOLIDAYS_VERBOSE:-}" ] && echo "holidays: line $lineno: unknown observe '$f1', using nearest" >&2 ;;
-                esac
+                for tok in $f1 $f2 $f3 $rest; do
+                    case "$tok" in
+                        none) obs_sat=none; obs_sun=none ;;
+                        sat=prev|sat=next|sat=none) obs_sat="${tok#sat=}" ;;
+                        sun=prev|sun=next|sun=none) obs_sun="${tok#sun=}" ;;
+                        *) [ -n "${HOLIDAYS_VERBOSE:-}" ] && echo "holidays: line $lineno: unknown observe option '$tok'" >&2 ;;
+                    esac
+                done
                 continue ;;
             fixed)
                 name="$f2 $f3 $rest"
                 if read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
-                    case "$observe:$dow" in
-                        nearest:6) d=$(date -d "$d -1 day" +%F) ;;
-                        nearest:7|monday:7) d=$(date -d "$d +1 day" +%F) ;;
-                        monday:6) d=$(date -d "$d +2 day" +%F) ;;
-                    esac
+                    pol=none
+                    case "$dow" in 6) pol=$obs_sat ;; 7) pol=$obs_sun ;; esac
+                    if [ "$pol" != none ]; then
+                        name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
+                        deferred="$deferred$d	$pol	${name:-holiday}"$'\n'
+                        continue
+                    fi
                 fi ;;
             nth)
                 name="$rest"; n="$f1"; dow=$(dow_num "$f2"); mm="$f3"
@@ -109,8 +120,22 @@ holidays_for_year() {
             continue
         fi
         name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
+        used="$used$d"$'\n'
         printf '%s\t%s\n' "$d" "${name:-holiday}"
     done < "$conf"
+    # Pass 2: shift weekend holidays to the nearest free working day.
+    [ -n "$deferred" ] || return 0
+    while IFS=$'\t' read -r d pol name; do
+        [ -n "$d" ] || continue
+        step="+1 day"; [ "$pol" = prev ] && step="-1 day"
+        for i in 1 2 3 4 5 6 7; do
+            d=$(date -d "$d $step" +%F)
+            dow=$(date -d "$d" +%u)
+            [ "$dow" -le 5 ] && case "$used" in *$'\n'"$d"$'\n'*) ;; *) break ;; esac
+        done
+        used="$used$d"$'\n'
+        printf '%s\t%s\n' "$d" "$name"
+    done <<< "$deferred"
 }
 
 # Days-of-month (space separated) that are holidays in $1-$2 (YYYY MM).
@@ -646,7 +671,7 @@ else
 fi
 
 # Location + git + churn get their own final row unless switched off.
-case "${CLAUDE_BUDGET_LOCATION:-on}" in
+case "${CLAUDE_BUDGET_REPO_LINE:-on}" in
     0|off|no|false) ;;
     *) loc_line=$(build_locline)
        [ -n "$loc_line" ] && out="$out"$'\n'"$loc_line" ;;

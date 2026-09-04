@@ -2,7 +2,7 @@
 
 A two-line statusline for Claude Code: model, effort, context use, session
 cost and two budget bars on the first line; directory, branch and diff on the
-second (switch the second line off with `CLAUDE_BUDGET_LOCATION=off`). The
+second (switch the second line off with `CLAUDE_BUDGET_REPO_LINE=off`). The
 budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
@@ -50,9 +50,19 @@ the background fetch has run.
 
 Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
 or `date YYYY-MM-DD`, each followed by a name. An `observe` line says how a
-fixed date that lands on a weekend is observed: `nearest` (Saturday → Friday,
-Sunday → Monday; the US federal convention and the default), `monday` (both →
-the following Monday), or `none`. To check the calendar:
+fixed date that lands on a weekend is observed, per weekend day: `prev` or
+`next` move it to the nearest working day in that direction that isn't already
+a holiday (so Christmas and Boxing Day chain onto Monday and Tuesday), `none`
+leaves it. Common settings:
+
+| | |
+|---|---|
+| `observe sat=prev sun=next` | US federal (the default) |
+| `observe sat=next sun=next` | UK, Ireland, Australia, New Zealand, Canada |
+| `observe sat=none sun=next` | Japan |
+| `observe none` | no substitution (most of continental Europe) |
+
+To check the calendar:
 
 ```
 bash statusline/budget-statusline.sh --holidays 2027
@@ -93,7 +103,7 @@ mounts `~/.claude` carries them along).
 - `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60. The
   fetch runs detached and never blocks a render.
 - `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default.
-- `CLAUDE_BUDGET_LOCATION` — `off` hides the second line (directory, branch,
+- `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
   diff), leaving only the first. Default on.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
