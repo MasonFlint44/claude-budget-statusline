@@ -1,0 +1,10 @@
+# Your own extra days off for budget-statusline.sh — excluded from "remaining
+# workdays in the month" ON TOP of the shared calendar in holidays.conf.
+# Personal PTO, office closures, anything the shared calendar doesn't know.
+# The installer never overwrites this file.
+#
+# One YYYY-MM-DD per line; anything after the date is a free-form label.
+# Comment lines and blanks are ignored; weekend dates are harmless no-ops.
+#
+# Example:
+#   2026-11-27  day after Thanksgiving
