@@ -36,8 +36,9 @@ then add to `~/.claude/settings.json`:
 "statusLine": { "command": "bash /path/to/statusline/budget-statusline.sh" }
 ```
 
-Restart Claude Code. The first render shows blanks for the budget bars; they
-fill within a minute once the background refresh has run.
+No restart needed: Claude Code picks up the change on its next refresh. The
+first render shows blanks for the budget bars; they fill within a minute once
+the background fetch has run.
 
 ## Files
 
@@ -49,7 +50,8 @@ fill within a minute once the background refresh has run.
 Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
 or `date YYYY-MM-DD`, each followed by a name. Fixed dates that land on a
 weekend are observed on the nearest weekday (Saturday → Friday, Sunday →
-Monday, the US federal convention; use `date` lines if yours differs). To
+Monday, the US federal convention). If your employer observes differently,
+list those years' actual days as `date` lines instead of a `fixed` rule. To
 check the calendar:
 
 ```
