@@ -22,8 +22,9 @@
 #        the percent keeps counting, and a coral "+$N" shows the overage
 #        (e.g. a month where the limit got raised on request).
 #
-# The monthly limit comes from the usage response. If it has none, set
-# CLAUDE_BUDGET_MONTHLY_LIMIT; with no limit at all the budget bars stay hidden.
+# The monthly limit is CLAUDE_BUDGET_MONTHLY_LIMIT if set (your own target,
+# even when the org sets a higher one), else the limit in the usage response.
+# With neither, the budget bars stay hidden.
 #
 # Wire-up (~/.claude/settings.json):
 #   "statusLine": { "command": "bash /path/to/budget-statusline.sh" }
@@ -113,7 +114,7 @@ holidays_in_month() {
 }
 
 if [ "${1:-}" = "--holidays" ]; then
-    HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(date +%Y)}" \
+    HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(TZ="${CLAUDE_BUDGET_TZ:-}" date +%Y)}" \
         | sort | while IFS=$'\t' read -r d name; do printf '%s %s %s\n' "$d" "$(date -d "$d" +%a)" "$name"; done
     exit 0
 fi
@@ -230,15 +231,18 @@ fmt_money() {
 # (cache/statusline/budget-usage.daystart), and daily = month - baseline. Accurate from the first
 # refresh of the day; a month rollover (month < baseline) resets the baseline.
 #
-# CLOCK: the day bar and the workday count run on LOCAL time. The month
-# figure is server-side and unaffected. The page has no per-day number to
-# reconcile against, so "today" is the calendar day you are actually in: an
-# 8 PM deploy session counts as that day's spend against that day's
-# allowance, not the next UTC day's. Only wrinkle: the page's month
-# counter resets at 00:00 UTC (7 PM local) on the last day, so that evening's
-# baseline re-pins via the month<baseline guard and the day bar shows only
-# post-reset spend until midnight.
-MONTHLY_LIMIT="${CLAUDE_BUDGET_MONTHLY_LIMIT:-0}"   # fallback if the response has no limit; 0 = none
+# CLOCK: the day bar and the workday count run on the budget clock:
+# CLAUDE_BUDGET_TZ if set (any TZ name, e.g. UTC or America/New_York), else
+# local time. The month figure is server-side and unaffected. The page has no
+# per-day number to reconcile against, so "today" is the calendar day on that
+# clock: on local time an 8 PM session counts as that day's spend against
+# that day's allowance, not the next UTC day's. Only wrinkle: the page's
+# month counter resets at 00:00 UTC on the last day, so if the budget clock
+# lags UTC that evening's baseline re-pins via the month<baseline guard and
+# the day bar shows only post-reset spend until midnight.
+BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
+bdate() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" date "$@"; else date "$@"; fi; }
+MONTHLY_LIMIT="${CLAUDE_BUDGET_MONTHLY_LIMIT:-0}"   # your own monthly target; 0 = use the response's limit
 # Cache lives INSIDE the config dir (not ~/.cache) so a devcontainer that mounts
 # ~/.claude gets the credentials, the cache, and the day-start baseline together.
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -246,11 +250,11 @@ CACHE_DIR="$CLAUDE_DIR/cache/statusline"
 CACHE_FILE="$CACHE_DIR/budget-usage"
 BASE_FILE="$CACHE_DIR/budget-usage.daystart"
 LOCK_DIR="$CACHE_DIR/budget-usage.lock"
-REFRESH_INTERVAL=60
+REFRESH_INTERVAL="${CLAUDE_BUDGET_REFRESH:-60}"   # seconds between usage fetches
 mkdir -p "$CACHE_DIR" 2>/dev/null
 
 now=$(date +%s)
-today=$(date +%Y-%m-%d)
+today=$(bdate +%Y-%m-%d)
 
 # Fetch month-to-date spend and cache it as
 # "<date> <today-dollars> <month-dollars> <limit-dollars> <holiday-days-of-month...>".
@@ -280,8 +284,10 @@ EOF
             "\((.spend.used.amount_minor // 0) / 100) \((.spend.limit.amount_minor // .spend.cap.credits.amount_minor // 0) / 100)"
         else empty end' 2>/dev/null)"
     [ -n "$month" ] || return
-    awk -v l="$limit" 'BEGIN{exit !(l > 0)}' || limit="$MONTHLY_LIMIT"
-    # Day-start baseline: first sighting of a UTC day pins the month total.
+    # Your own target wins over the org's; neither -> 0 -> bars hidden.
+    awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' && limit="$MONTHLY_LIMIT"
+    awk -v l="$limit" 'BEGIN{exit !(l > 0)}' || limit=0
+    # Day-start baseline: first sighting of a budget-clock day pins the month total.
     local b_date b_month
     read -r b_date b_month < "$BASE_FILE" 2>/dev/null
     if [ "$b_date" != "$today" ] || ! awk -v m="$month" -v b="${b_month:-0}" 'BEGIN{exit !(m >= b)}'; then
@@ -292,7 +298,7 @@ EOF
     day=$(awk -v m="$month" -v b="$b_month" 'BEGIN{d=m-b; if(d<0)d=0; printf "%.6g", d}')
     # This month's holidays (days-of-month) from config/holidays.conf.
     local hol
-    hol=$(holidays_in_month "$(date +%Y)" "$(date +%m)")
+    hol=$(holidays_in_month "$(bdate +%Y)" "$(bdate +%m)")
     printf '%s %s %s %s %s\n' "$today" "$day" "$month" "$limit" "$hol" > "$CACHE_FILE.tmp" 2>/dev/null \
         && mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null
 }
@@ -334,9 +340,9 @@ if [ -n "$day_cost" ] && awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' 2>/dev
     # workdays still ahead (its spend draws on the next workday's slice);
     # floor at 1 so the last day of the month never divides by zero.
     hol="$hol_doms"
-    wd=$(awk -v dom="$(date +%-d)" \
-             -v dim="$(date -d "$(date +%Y-%m-01) +1 month -1 day" +%-d)" \
-             -v dow="$(date +%u)" -v hol="$hol" '
+    wd=$(awk -v dom="$(bdate +%-d)" \
+             -v dim="$(date -d "$(bdate +%Y-%m-01) +1 month -1 day" +%-d)" \
+             -v dow="$(bdate +%u)" -v hol="$hol" '
         BEGIN{ hn=split(hol, ha, " "); for(i=1; i<=hn; i++) H[ha[i]+0]=1
                n=0; w=dow; for(d=dom; d<=dim; d++){ if(w<=5 && !H[d]) n++; w=w%7+1 }
                if(n<1) n=1; print n }')

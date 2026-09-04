@@ -1,7 +1,8 @@
 # claude-budget-statusline
 
-A one-line statusline for Claude Code that shows model, effort, context use,
-session cost, git state, and two budget bars:
+A two-line statusline for Claude Code: model, effort, context use, session
+cost and two budget bars on the first line; directory, branch and diff on the
+second. The budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
   month's *remaining* budget evenly over the remaining workdays of the month
@@ -47,7 +48,9 @@ fill within a minute once the background refresh has run.
 
 Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
 or `date YYYY-MM-DD`, each followed by a name. Fixed dates that land on a
-weekend are observed on the nearest weekday. To check the calendar:
+weekend are observed on the nearest weekday (Saturday → Friday, Sunday →
+Monday, the US federal convention; use `date` lines if yours differs). To
+check the calendar:
 
 ```
 bash statusline/budget-statusline.sh --holidays 2027
@@ -72,20 +75,26 @@ either put the `g`-prefixed tools first on `PATH` or alias `date`, `stat`, and
 The usage endpoint has no per-day figure, so the script derives one: the first
 time it sees a new calendar day it records the month-to-date total as that
 day's baseline, and daily = month − baseline. Accurate from the first refresh
-of the day. The day rolls at **local midnight**; the month figure is server-side
-and rolls at 00:00 UTC on the last day. Cache and baseline live in
+of the day. The day rolls at **local midnight** unless `CLAUDE_BUDGET_TZ` says
+otherwise; the month figure is server-side and rolls at 00:00 UTC on the last
+day. Cache and baseline live in
 `~/.claude/cache/statusline/` (inside the config dir so a devcontainer that
 mounts `~/.claude` carries them along).
 
 ## Knobs
 
-- `CLAUDE_BUDGET_MONTHLY_LIMIT` — monthly limit in dollars, used when the
-  usage response carries none. With no limit from either source the budget
-  bars stay hidden.
+- `CLAUDE_BUDGET_MONTHLY_LIMIT` — your own monthly target in dollars. Set, it
+  is the limit the bars use even if the org's is higher; unset, the limit in
+  the usage response is used. With neither the budget bars stay hidden.
+- `CLAUDE_BUDGET_TZ` — the clock the day bar and workday count run on, as a
+  time zone name (`UTC`, `America/New_York`). Default: local time.
+- `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60. The
+  fetch runs detached and never blocks a render.
 - `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
-Refresh interval is 60 s; the refresh runs detached and never blocks a render.
+Set knobs in the environment Claude Code starts from, or inline in the
+`statusLine` command, e.g. `"command": "CLAUDE_BUDGET_TZ=UTC bash /path/to/budget-statusline.sh"`.
 
 ## License
 
