@@ -3,8 +3,8 @@
 # same usage endpoint the /usage page renders (real billed dollars; the monthly
 # limit comes from the org). Plus model, effort, context, session cost, git.
 #
-# Ships as: this file + scripts/holidays.py + config/holidays.conf +
-# config/extra-days-off.txt (see README.md for install and prerequisites).
+# Ships as: this file + scripts/holidays.py + config/holidays.conf
+# (see README.md for install and prerequisites).
 #
 #   day: today's spend vs today's allowance, where the allowance divides the
 #        month's REMAINING budget (as of this morning) evenly over the
@@ -12,8 +12,8 @@
 #            allowance = (limit - (monthly - daily)) / workdays_left
 #        workdays = weekdays minus holidays. Holidays come from the rules
 #        in config/holidays.conf (evaluated by scripts/holidays.py at
-#        refresh time, cached), plus your own extra days off listed in
-#        config/extra-days-off.txt (PTO, office closures).
+#        refresh time, cached); one-off closures or PTO go there too as
+#        "date YYYY-MM-DD" lines.
 #        Subtracting daily from monthly freezes the
 #        allowance at its start-of-day value -- otherwise today's own spend
 #        would shrink its own denominator. On a weekend or holiday,
@@ -249,18 +249,14 @@ fi
 day_pct=""; mo_pct=""; day_allow=""; mo_over=0
 # No known limit (response had none, no override): the bars stay hidden.
 if [ -n "$day_cost" ] && awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' 2>/dev/null; then
-    # Remaining WORKdays in the month, today included: weekdays minus company
-    # holidays. The calendar holidays arrive pre-derived in the cache (see
-    # refresh_usage); config/extra-days-off.txt adds your own extra days
-    # off (one YYYY-MM-DD per line, comments/labels/weekend dates ignored).
+    # Remaining WORKdays in the month, today included: weekdays minus
+    # holidays. The holidays arrive pre-derived in the cache (see
+    # refresh_usage) as this month's days-of-month.
     # The weekday cycle is walked in awk so it costs no per-day subprocesses.
     # On a weekend or holiday today contributes nothing and the count is the
     # workdays still ahead (its spend draws on the next workday's slice);
     # floor at 1 so the last day of the month never divides by zero.
-    EXTRA_FILE="${CLAUDE_BUDGET_EXTRA_DAYS:-$SCRIPT_DIR/config/extra-days-off.txt}"
     hol="$hol_doms"
-    [ -r "$EXTRA_FILE" ] && hol="$hol $(grep -o "^$(date +%Y-%m)-[0-9][0-9]" "$EXTRA_FILE" 2>/dev/null \
-        | cut -d- -f3 | tr '\n' ' ')"
     wd=$(awk -v dom="$(date +%-d)" \
              -v dim="$(date -d "$(date +%Y-%m-01) +1 month -1 day" +%-d)" \
              -v dow="$(date +%u)" -v hol="$hol" '

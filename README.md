@@ -44,8 +44,7 @@ fill within a minute once the background refresh has run.
 |------|---------|
 | `statusline/budget-statusline.sh` | the statusline itself |
 | `statusline/scripts/holidays.py` | evaluates the holiday rules |
-| `statusline/config/holidays.conf` | the shared holiday calendar (ships with the US federal holidays; edit to match your company's) |
-| `statusline/config/extra-days-off.txt` | your own extra days off — PTO, office closures — one `YYYY-MM-DD` per line; never overwritten by the installer |
+| `statusline/config/holidays.conf` | the holiday calendar — ships with the US federal holidays; edit to match your company's, add your own closures or PTO as `date` lines. Yours once installed: the installer never overwrites it |
 
 Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
 or `date YYYY-MM-DD`, each followed by a name. Fixed dates that land on a
@@ -54,8 +53,14 @@ prints the calendar for a year.
 
 ## Prerequisites
 
-`bash`, `jq`, `curl`, `git`, and `python3` (holidays only — without it the day
-bar counts plain weekdays).
+- **A Claude Code login through claude.ai.** The budget bars read the CLI's
+  OAuth token from `~/.claude/.credentials.json`. With an API key instead of a
+  login there is no token, and the bars stay hidden; the rest of the line
+  still renders.
+- `bash`, `jq`, `curl`, `awk`, and GNU `date`, `stat`, `readlink`.
+- `git` — only for the branch and diff segment; blank without it.
+- `python3` — only for the holiday calendar (standard library only); without
+  it the day bar counts plain weekdays.
 
 Linux and devcontainers work as-is. **macOS:** the script uses GNU `date -d`,
 `stat -c`, and `readlink -f`. Install coreutils (`brew install coreutils`) and
@@ -78,7 +83,6 @@ mounts `~/.claude` carries them along).
   usage response carries none. With no limit from either source the budget
   bars stay hidden.
 - `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default.
-- `CLAUDE_BUDGET_EXTRA_DAYS` — path to the extra-days-off file, if not the default.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
 Refresh interval is 60 s; the refresh runs detached and never blocks a render.

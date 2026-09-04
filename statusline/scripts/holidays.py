@@ -9,8 +9,8 @@ Rules live in config/holidays.conf (one per line, "#" comments):
     last  DOW MM       name   last weekday of a month
     date  YYYY-MM-DD   name   a one-off date (no weekend shift)
 
-The shipped file is the US federal calendar. Replace it with your company's.
-Personal days off (PTO, closures) go in config/extra-days-off.txt instead.
+The shipped file is the US federal calendar. Edit it to match your company's;
+one-off closures or your own PTO go in as "date" lines.
 """
 
 import os
