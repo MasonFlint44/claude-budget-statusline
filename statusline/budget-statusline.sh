@@ -31,6 +31,7 @@
 
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
 HOLIDAY_RULES="${CLAUDE_BUDGET_HOLIDAYS:-$SCRIPT_DIR/config/holidays.conf}"
+case "$HOLIDAY_RULES" in off|none|0|false) HOLIDAY_RULES="" ;; esac   # no holidays: plain weekday counting
 
 # --- Holiday calendar (config/holidays.conf) ---
 # Rules, one per line, "#" comments, name optional:
@@ -62,7 +63,7 @@ is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 holidays_for_year() {
     local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0
     local obs_sat=prev obs_sun=next tok pol used=$'\n' deferred="" step i
-    [ -r "$conf" ] || return 0
+    [ -n "$conf" ] && [ -r "$conf" ] || return 0
     # Two passes: weekday holidays are placed first, then weekend ones are
     # shifted onto working days not already taken (file order among those).
     while IFS= read -r line || [ -n "$line" ]; do
@@ -150,6 +151,8 @@ holidays_in_month() {
 }
 
 if [ "${1:-}" = "--holidays" ]; then
+    [ -n "$HOLIDAY_RULES" ] || { echo "holidays: disabled (CLAUDE_BUDGET_HOLIDAYS=$CLAUDE_BUDGET_HOLIDAYS)" >&2; exit 0; }
+    [ -r "$HOLIDAY_RULES" ] || { echo "holidays: no rules file at $HOLIDAY_RULES (plain weekday counting)" >&2; exit 0; }
     HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(TZ="${CLAUDE_BUDGET_TZ:-}" date +%Y)}" \
         | sort | while IFS=$'\t' read -r d name; do printf '%s %s %s\n' "$d" "$(date -d "$d" +%a)" "$name"; done
     exit 0

@@ -102,7 +102,8 @@ mounts `~/.claude` carries them along).
   time zone name (`UTC`, `America/New_York`). Default: local time.
 - `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60. The
   fetch runs detached and never blocks a render.
-- `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default.
+- `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default;
+  `off` disables holidays entirely (every weekday counts as a workday).
 - `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
   diff), leaving only the first. Default on.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
