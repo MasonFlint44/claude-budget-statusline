@@ -28,7 +28,7 @@ copy. Plugins can't set `statusLine` themselves and the plugin directory moves
 on each version update, which is why the install step exists.
 
 **By hand:** copy the `statusline/` directory somewhere stable, keeping its
-`scripts/` and `config/` subfolders (the script finds them relative to itself),
+`config/` subfolder (the script finds it relative to itself),
 then add to `~/.claude/settings.json`:
 
 ```json
@@ -43,13 +43,15 @@ fill within a minute once the background refresh has run.
 | File | Purpose |
 |------|---------|
 | `statusline/budget-statusline.sh` | the statusline itself |
-| `statusline/scripts/holidays.py` | evaluates the holiday rules |
 | `statusline/config/holidays.conf` | the holiday calendar — ships with the US federal holidays; edit to match your company's, add your own closures or PTO as `date` lines. Yours once installed: the installer never overwrites it |
 
 Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
 or `date YYYY-MM-DD`, each followed by a name. Fixed dates that land on a
-weekend are observed on the nearest weekday. `python3 statusline/scripts/holidays.py 2027`
-prints the calendar for a year.
+weekend are observed on the nearest weekday. To check the calendar:
+
+```
+bash statusline/budget-statusline.sh --holidays 2027
+```
 
 ## Prerequisites
 
@@ -59,8 +61,6 @@ prints the calendar for a year.
   still renders.
 - `bash`, `jq`, `curl`, `awk`, and GNU `date`, `stat`, `readlink`.
 - `git` — only for the branch and diff segment; blank without it.
-- `python3` — only for the holiday calendar (standard library only); without
-  it the day bar counts plain weekdays.
 
 Linux and devcontainers work as-is. **macOS:** the script uses GNU `date -d`,
 `stat -c`, and `readlink -f`. Install coreutils (`brew install coreutils`) and
@@ -86,12 +86,6 @@ mounts `~/.claude` carries them along).
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
 Refresh interval is 60 s; the refresh runs detached and never blocks a render.
-
-## Development
-
-Run `scripts/install-hook.sh` once after cloning: it installs a pre-commit
-hook that runs [gitleaks](https://github.com/gitleaks/gitleaks) over the staged
-diff, since this script handles an OAuth token.
 
 ## License
 

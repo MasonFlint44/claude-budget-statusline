@@ -11,7 +11,6 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
 
 1. **Locate the source.** The files ship with this plugin at `${CLAUDE_PLUGIN_ROOT}/statusline/`:
    - `budget-statusline.sh`
-   - `scripts/holidays.py`
    - `config/holidays.conf` (the holiday calendar)
 
    Resolve the config dir as `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`; call it `$CFG` below.
@@ -19,16 +18,15 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
 2. **Copy to the stable location**, preserving the subfolders:
    ```bash
    CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-   mkdir -p "$CFG/statusline/scripts" "$CFG/statusline/config"
+   mkdir -p "$CFG/statusline/config"
    cp "${CLAUDE_PLUGIN_ROOT}/statusline/budget-statusline.sh" "$CFG/statusline/"
-   cp "${CLAUDE_PLUGIN_ROOT}/statusline/scripts/holidays.py" "$CFG/statusline/scripts/"
    [ -e "$CFG/statusline/config/holidays.conf" ] || \
      cp "${CLAUDE_PLUGIN_ROOT}/statusline/config/holidays.conf" "$CFG/statusline/config/"
    chmod +x "$CFG/statusline/budget-statusline.sh"
    ```
-   The script and the holiday engine are refreshed every time. `holidays.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
+   The script is refreshed every time. `holidays.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
 
-3. **Check prerequisites** and report any that are missing: `bash`, `jq`, `curl`, `git`; `python3` is optional (without it the day bar counts plain weekdays). On macOS, warn that the script needs GNU `date`, `stat`, and `readlink` (`brew install coreutils`, then the `g`-prefixed tools first on `PATH` or aliased).
+3. **Check prerequisites** and report any that are missing: `bash`, `jq`, `curl`, `awk`, `git`, and a claude.ai login (the budget bars need the CLI's OAuth token; with an API key they stay hidden). On macOS, warn that the script needs GNU `date`, `stat`, and `readlink` (`brew install coreutils`, then the `g`-prefixed tools first on `PATH` or aliased).
 
 4. **Wire settings.** Read `$CFG/settings.json`. Show the user the exact change before making it, then set:
    ```json

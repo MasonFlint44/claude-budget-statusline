@@ -3,17 +3,16 @@
 # same usage endpoint the /usage page renders (real billed dollars; the monthly
 # limit comes from the org). Plus model, effort, context, session cost, git.
 #
-# Ships as: this file + scripts/holidays.py + config/holidays.conf
-# (see README.md for install and prerequisites).
+# Ships as: this file + config/holidays.conf (see README.md for install and
+# prerequisites). `budget-statusline.sh --holidays [YEAR]` prints the calendar.
 #
 #   day: today's spend vs today's allowance, where the allowance divides the
 #        month's REMAINING budget (as of this morning) evenly over the
 #        remaining workdays of the month, today included:
 #            allowance = (limit - (monthly - daily)) / workdays_left
 #        workdays = weekdays minus holidays. Holidays come from the rules
-#        in config/holidays.conf (evaluated by scripts/holidays.py at
-#        refresh time, cached); one-off closures or PTO go there too as
-#        "date YYYY-MM-DD" lines.
+#        in config/holidays.conf (evaluated at refresh time, cached);
+#        one-off closures or PTO go there too as "date YYYY-MM-DD" lines.
 #        Subtracting daily from monthly freezes the
 #        allowance at its start-of-day value -- otherwise today's own spend
 #        would shrink its own denominator. On a weekend or holiday,
@@ -28,6 +27,97 @@
 #
 # Wire-up (~/.claude/settings.json):
 #   "statusLine": { "command": "bash /path/to/budget-statusline.sh" }
+
+SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
+HOLIDAY_RULES="${CLAUDE_BUDGET_HOLIDAYS:-$SCRIPT_DIR/config/holidays.conf}"
+
+# --- Holiday calendar (config/holidays.conf) ---
+# Rules, one per line, "#" comments, name optional:
+#   fixed MM-DD      name   fixed date; Saturday -> Friday, Sunday -> Monday
+#   nth   N DOW MM   name   Nth weekday of a month (DOW = mon..sun, N = 1..5;
+#                           a fifth that the month lacks is skipped)
+#   last  DOW MM     name   last weekday of a month
+#   date  YYYY-MM-DD name   a one-off date (no weekend shift)
+# Lines that don't parse are skipped (reported on stderr by --holidays).
+
+dow_num() {  # mon..sun -> 1..7 (matches date +%u); empty if unknown
+    case "$1" in
+        [Mm][Oo][Nn]) echo 1 ;; [Tt][Uu][Ee]) echo 2 ;; [Ww][Ee][Dd]) echo 3 ;;
+        [Tt][Hh][Uu]) echo 4 ;; [Ff][Rr][Ii]) echo 5 ;; [Ss][Aa][Tt]) echo 6 ;;
+        [Ss][Uu][Nn]) echo 7 ;; *) echo "" ;;
+    esac
+}
+
+is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
+
+# Print "YYYY-MM-DD<TAB>name" for every rule in $1 evaluated for year $2.
+# Observed shifts may land in an adjacent month or year (Jan 1 -> Dec 31).
+holidays_for_year() {
+    local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0
+    [ -r "$conf" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        lineno=$((lineno + 1))
+        line="${line%%#*}"
+        read -r kind f1 f2 f3 rest <<< "$line"
+        [ -n "$kind" ] || continue
+        d=""; name=""
+        case "$kind" in
+            fixed)
+                name="$f2 $f3 $rest"
+                if read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
+                    case "$dow" in
+                        6) d=$(date -d "$d -1 day" +%F) ;;
+                        7) d=$(date -d "$d +1 day" +%F) ;;
+                    esac
+                fi ;;
+            nth)
+                name="$rest"; n="$f1"; dow=$(dow_num "$f2"); mm="$f3"
+                if is_int "$n" && [ "$n" -ge 1 ] && [ -n "$dow" ] && is_int "$mm" \
+                   && first=$(date -d "$y-$mm-01" +%u 2>/dev/null) && [ -n "$first" ]; then
+                    dim=$(date -d "$y-$mm-01 +1 month -1 day" +%d)
+                    day=$(( 1 + (dow - first + 7) % 7 + 7 * (n - 1) ))
+                    [ "$day" -le "$((10#$dim))" ] && d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
+                fi ;;
+            last)
+                name="$f3 $rest"; dow=$(dow_num "$f1"); mm="$f2"
+                if [ -n "$dow" ] && is_int "$mm" \
+                   && read -r ld ldow < <(date -d "$y-$mm-01 +1 month -1 day" +'%d %u' 2>/dev/null) && [ -n "$ldow" ]; then
+                    day=$(( 10#$ld - (ldow - dow + 7) % 7 ))
+                    d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
+                fi ;;
+            date)
+                name="$f2 $f3 $rest"
+                case "$f1" in
+                    "$y"-[0-1][0-9]-[0-3][0-9]) date -d "$f1" >/dev/null 2>&1 && d="$f1" ;;
+                    [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) continue ;;  # another year: fine, not ours
+                esac ;;
+        esac
+        if [ -z "$d" ]; then
+            [ -n "${HOLIDAYS_VERBOSE:-}" ] && echo "holidays: skipping line $lineno: $line" >&2
+            continue
+        fi
+        name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
+        printf '%s\t%s\n' "$d" "${name:-holiday}"
+    done < "$conf"
+}
+
+# Days-of-month (space separated) that are holidays in $1-$2 (YYYY MM).
+# Rules for the adjacent years are included so observed shifts across
+# New Year's are seen. Any failure -> empty (plain weekday counting).
+holidays_in_month() {
+    local y="$1" m="$2" yy
+    for yy in $((10#$y - 1)) $((10#$y)) $((10#$y + 1)); do
+        holidays_for_year "$HOLIDAY_RULES" "$yy"
+    done 2>/dev/null | awk -F'\t' -v ym="$y-$m" 'substr($1,1,7)==ym {print substr($1,9,2)+0}' \
+       | sort -un | tr '\n' ' '
+}
+
+if [ "${1:-}" = "--holidays" ]; then
+    HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(date +%Y)}" \
+        | sort | while IFS=$'\t' read -r d name; do printf '%s %s %s\n' "$d" "$(date -d "$d" +%a)" "$name"; done
+    exit 0
+fi
+
 input=$(cat)
 
 # ANSI color codes
@@ -161,7 +251,6 @@ mkdir -p "$CACHE_DIR" 2>/dev/null
 
 now=$(date +%s)
 today=$(date +%Y-%m-%d)
-SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
 
 # Fetch month-to-date spend and cache it as
 # "<date> <today-dollars> <month-dollars> <limit-dollars> <holiday-days-of-month...>".
@@ -201,21 +290,9 @@ EOF
     fi
     local day
     day=$(awk -v m="$month" -v b="$b_month" 'BEGIN{d=m-b; if(d<0)d=0; printf "%.6g", d}')
-    # This month's holidays from config/holidays.conf via scripts/holidays.py
-    # (adjacent years included: observed New Year's can land Dec 31).
-    # Any failure -> empty, i.e. degrade to plain weekday counting.
+    # This month's holidays (days-of-month) from config/holidays.conf.
     local hol
-    hol=$(python3 - "$SCRIPT_DIR/scripts" "${CLAUDE_BUDGET_HOLIDAYS:-$SCRIPT_DIR/config/holidays.conf}" 2>/dev/null <<'PYEOF'
-import sys, datetime
-sys.path.insert(0, sys.argv[1])
-from holidays import observed_holidays
-t = datetime.date.today()
-hs = {}
-for y in (t.year - 1, t.year, t.year + 1):
-    hs.update(observed_holidays(y, sys.argv[2]))
-print(" ".join(str(d.day) for d in sorted(hs) if (d.year, d.month) == (t.year, t.month)))
-PYEOF
-)
+    hol=$(holidays_in_month "$(date +%Y)" "$(date +%m)")
     printf '%s %s %s %s %s\n' "$today" "$day" "$month" "$limit" "$hol" > "$CACHE_FILE.tmp" 2>/dev/null \
         && mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null
 }
