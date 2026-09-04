@@ -599,7 +599,7 @@ parse_shortstat() {
 # Every group is self-hiding (pending only when dirty, arrows only with a
 # nonzero count against upstream, vs-<default> only off the default branch,
 # session only with churn), so the quiet state collapses to "path ⎇ branch".
-# "pending" folds untracked-file lines (gitignore respected) into added; its
+# "pending" folds untracked-file lines (gitignore respected; text files under 1 MB) into added; its
 # presence IS the dirty flag. "behind" is as of the last fetch -- we never
 # fetch here. Not width-managed: the TUI truncates rows on its own.
 build_locline() {
@@ -633,8 +633,12 @@ build_locline() {
         # pending: uncommitted lines vs HEAD + lines in untracked files
         read -r a r <<< "$(git -C "$dir" diff --shortstat HEAD 2>/dev/null | parse_shortstat)"
         local u
-        # ls-files emits repo-relative paths, so cat must run from the repo too.
-        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 cat 2>/dev/null) | wc -l )
+        # Only text files under 1 MB count, so a stray build artifact or a
+        # not-yet-ignored data dump can't turn every render into a disk scan.
+        # ls-files emits repo-relative paths, so the pipeline runs from the repo.
+        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null \
+               | xargs -0 sh -c 'find "$@" -maxdepth 0 -type f -size -1024k -print0' sh 2>/dev/null \
+               | xargs -0 grep -Ic '' 2>/dev/null) | awk -F: '{s+=$NF} END{print s+0}' )
         pair=$(fmt_pair $(( a + u )) "$r" hot)
         local cluster=""
         [ -n "$pair" ] && cluster="${CLR_DIM}pending${CLR_RESET} $pair"
