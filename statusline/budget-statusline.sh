@@ -20,7 +20,7 @@
 #        that spend draws against the next workday's slice.
 #   month: monthly spend vs the monthly limit. Past the limit the bar pegs,
 #        the percent keeps counting, and a coral "+$N" shows the overage
-#        (e.g. a month where the limit got raised on request).
+#        beside it.
 #
 # The monthly limit is CLAUDE_BUDGET_MONTHLY_LIMIT if set (your own target,
 # even when the org sets a higher one), else the limit in the usage response.
@@ -29,7 +29,11 @@
 # Wire-up (~/.claude/settings.json):
 #   "statusLine": { "command": "bash /path/to/budget-statusline.sh" }
 
+export LC_NUMERIC=C   # printf '%.0f' must parse "42.5" regardless of the user's locale
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
+# The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
+BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
+bdate() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" date "$@"; else date "$@"; fi; }
 HOLIDAY_RULES="${CLAUDE_BUDGET_HOLIDAYS:-$SCRIPT_DIR/config/holidays.conf}"
 case "$HOLIDAY_RULES" in off|none|0|false) HOLIDAY_RULES="" ;; esac   # no holidays: plain weekday counting
 
@@ -45,7 +49,7 @@ case "$HOLIDAY_RULES" in off|none|0|false) HOLIDAY_RULES="" ;; esac   # no holid
 #                           working day in that direction not already a
 #                           holiday (so Christmas + Boxing Day chain). Default
 #                           sat=prev sun=next (US federal). "observe none" =
-#                           no shift. Rules are placed top to bottom.
+#                           no shift. Applies file-wide wherever it appears.
 # Lines that don't parse are skipped (reported on stderr by --holidays).
 
 dow_num() {  # mon..sun -> 1..7 (matches date +%u); empty if unknown
@@ -68,6 +72,7 @@ holidays_for_year() {
     # shifted onto working days not already taken (file order among those).
     while IFS= read -r line || [ -n "$line" ]; do
         lineno=$((lineno + 1))
+        line="${line%$'\r'}"
         line="${line%%#*}"
         read -r kind f1 f2 f3 rest <<< "$line"
         [ -n "$kind" ] || continue
@@ -85,12 +90,13 @@ holidays_for_year() {
                 continue ;;
             fixed)
                 name="$f2 $f3 $rest"
-                if read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
-                    pol=none
-                    case "$dow" in 6) pol=$obs_sat ;; 7) pol=$obs_sun ;; esac
-                    if [ "$pol" != none ]; then
+                case "$f1" in [0-9][0-9]-[0-9][0-9]|[0-9]-[0-9][0-9]|[0-9][0-9]-[0-9]|[0-9]-[0-9]) ;; *) f1="" ;; esac
+                if [ -n "$f1" ] && read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
+                    if [ "$dow" -ge 6 ]; then
+                        # Weekend: decided in pass 2, once the whole file (incl.
+                        # any later "observe" line) has been read.
                         name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
-                        deferred="$deferred$d	$pol	${name:-holiday}"$'\n'
+                        deferred="$deferred$d	$dow	${name:-holiday}"$'\n'
                         continue
                     fi
                 fi ;;
@@ -99,6 +105,7 @@ holidays_for_year() {
                 if is_int "$n" && [ "$n" -ge 1 ] && [ -n "$dow" ] && is_int "$mm" \
                    && first=$(date -d "$y-$mm-01" +%u 2>/dev/null) && [ -n "$first" ]; then
                     dim=$(date -d "$y-$mm-01 +1 month -1 day" +%d)
+                    n=$((10#$n))
                     day=$(( 1 + (dow - first + 7) % 7 + 7 * (n - 1) ))
                     [ "$day" -le "$((10#$dim))" ] && d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
                 fi ;;
@@ -126,8 +133,10 @@ holidays_for_year() {
     done < "$conf"
     # Pass 2: shift weekend holidays to the nearest free working day.
     [ -n "$deferred" ] || return 0
-    while IFS=$'\t' read -r d pol name; do
+    while IFS=$'\t' read -r d dow name; do
         [ -n "$d" ] || continue
+        pol=$obs_sun; [ "$dow" = 6 ] && pol=$obs_sat
+        if [ "$pol" = none ]; then printf '%s\t%s\n' "$d" "$name"; continue; fi
         step="+1 day"; [ "$pol" = prev ] && step="-1 day"
         for i in 1 2 3 4 5 6 7; do
             d=$(date -d "$d $step" +%F)
@@ -153,7 +162,7 @@ holidays_in_month() {
 if [ "${1:-}" = "--holidays" ]; then
     [ -n "$HOLIDAY_RULES" ] || { echo "holidays: disabled (CLAUDE_BUDGET_HOLIDAYS=$CLAUDE_BUDGET_HOLIDAYS)" >&2; exit 0; }
     [ -r "$HOLIDAY_RULES" ] || { echo "holidays: no rules file at $HOLIDAY_RULES (plain weekday counting)" >&2; exit 0; }
-    HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(TZ="${CLAUDE_BUDGET_TZ:-}" date +%Y)}" \
+    HOLIDAYS_VERBOSE=1 holidays_for_year "$HOLIDAY_RULES" "${2:-$(bdate +%Y)}" \
         | sort | while IFS=$'\t' read -r d name; do printf '%s %s %s\n' "$d" "$(date -d "$d" +%a)" "$name"; done
     exit 0
 fi
@@ -161,8 +170,8 @@ fi
 input=$(cat)
 
 # ANSI color codes
-CLR_DIM='\033[2m'
-CLR_RESET='\033[0m'
+CLR_DIM=$'\033[2m'
+CLR_RESET=$'\033[0m'
 
 # Shared heat ramp (24-bit truecolor): muted green -> Claude gold -> Claude coral,
 # as channel arrays plus the percentage each stop is anchored at. Both the effort
@@ -203,9 +212,9 @@ ramp_color() {
         g=$(( RAMP_G[i] + (RAMP_G[i+1] - RAMP_G[i]) * t / span ))
         b=$(( RAMP_B[i] + (RAMP_B[i+1] - RAMP_B[i]) * t / span ))
     fi
-    # Emit the escape literally (\033, not a real ESC): the final render pipes the
-    # whole line through `printf '%b'`, matching the CLR_*/RAMP_* constants above.
-    printf '\\033[38;2;%d;%d;%dm' "$r" "$g" "$b"
+    # A real ESC byte, like the CLR_* constants: the final render prints the
+    # line with printf '%s', so text from the input can't smuggle escapes in.
+    printf $'\033[38;2;%d;%d;%dm' "$r" "$g" "$b"
 }
 
 # Map an effort level to its ramp color by sampling the ramp at evenly spaced
@@ -263,8 +272,8 @@ fmt_money() {
 # The same data /usage renders: GET api.anthropic.com/api/oauth/usage with the
 # CLI's own OAuth token. .spend.used is the month-to-date dollars the page
 # shows and .spend.limit is the org's monthly cap — real billed numbers, so no
-# local token pricing (local pricing tools miss cache-write rates and ran ~20%
-# under the page when compared).
+# local token pricing to drift (local estimators tend to miss cache-write
+# rates and undercount).
 # The endpoint has no per-day figure, so today's spend is derived: the month
 # total the first time each day is seen becomes that day's baseline
 # (cache/statusline/budget-usage.daystart), and daily = month - baseline. Accurate from the first
@@ -279,8 +288,6 @@ fmt_money() {
 # month counter resets at 00:00 UTC on the last day, so if the budget clock
 # lags UTC that evening's baseline re-pins via the month<baseline guard and
 # the day bar shows only post-reset spend until midnight.
-BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
-bdate() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" date "$@"; else date "$@"; fi; }
 MONTHLY_LIMIT="${CLAUDE_BUDGET_MONTHLY_LIMIT:-0}"   # your own monthly target; 0 = use the response's limit
 # Cache lives INSIDE the config dir (not ~/.cache) so a devcontainer that mounts
 # ~/.claude gets the credentials, the cache, and the day-start baseline together.
@@ -309,13 +316,12 @@ refresh_usage() {
     exp=$(jq -r '(.claudeAiOauth.expiresAt // 0) | floor' "$creds" 2>/dev/null)
     [ "${exp:-0}" -gt "$(( now * 1000 ))" ] 2>/dev/null || return
     local resp
-    # The token travels in a curl config on stdin, not argv, so it never shows in ps.
-    resp=$(curl -s -m 5 -K - <<EOF
-url = "https://api.anthropic.com/api/oauth/usage"
-header = "Authorization: Bearer $tok"
-header = "anthropic-beta: oauth-2025-04-20"
-EOF
-    ) || return
+    # The token travels in a curl config piped from the printf builtin: never
+    # in argv (ps), never in a temp file (a heredoc would be one on bash < 5.1).
+    resp=$(printf '%s\n' 'url = "https://api.anthropic.com/api/oauth/usage"' \
+                          "header = \"Authorization: Bearer $tok\"" \
+                          'header = "anthropic-beta: oauth-2025-04-20"' \
+           | curl -s -m 5 -K -) || return
     [ -n "$resp" ] || return
     local month limit
     read -r month limit <<< "$(printf '%s' "$resp" | jq -r '
@@ -344,11 +350,13 @@ EOF
 
 # Decide whether to trigger a background refresh.
 cache_age=$(( now - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0) ))
-if [ ! -f "$CACHE_FILE" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ]; then
-    # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge permanently.
+# A cache dated in the future (clock skew, e.g. a host-mounted dir) counts as stale.
+if [ ! -f "$CACHE_FILE" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; then
+    # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge
+    # permanently. Rename-then-remove so two renders can't both claim it.
     if [ -d "$LOCK_DIR" ]; then
         lock_age=$(( now - $(stat -c %Y "$LOCK_DIR" 2>/dev/null || echo "$now") ))
-        [ "$lock_age" -gt 300 ] && rmdir "$LOCK_DIR" 2>/dev/null
+        [ "$lock_age" -gt 300 ] && mv "$LOCK_DIR" "$LOCK_DIR.stale.$$" 2>/dev/null && rmdir "$LOCK_DIR.stale.$$" 2>/dev/null
     fi
     # mkdir is atomic: only one refresher runs at a time.
     if mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -357,13 +365,15 @@ if [ ! -f "$CACHE_FILE" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ]; then
     fi
 fi
 
+is_num() { case "$1" in ''|*[!0-9.]*|*.*.*|.) return 1 ;; *) return 0 ;; esac; }
 day_cost=""; mo_cost=""; hol_doms=""
 if [ -f "$CACHE_FILE" ]; then
     read -r c_date c_day c_mo c_lim c_hol < "$CACHE_FILE" 2>/dev/null
     # Yesterday's cache would misreport its daily total as today's: hide instead.
-    if [ "$c_date" = "$today" ]; then
+    # A garbled line (non-numeric fields) is treated as no cache.
+    if [ "$c_date" = "$today" ] && is_num "$c_day" && is_num "$c_mo"; then
         day_cost="$c_day"; mo_cost="$c_mo"; hol_doms="$c_hol"
-        awk -v l="$c_lim" 'BEGIN{exit !(l > 0)}' 2>/dev/null && MONTHLY_LIMIT="$c_lim"
+        is_num "$c_lim" && awk -v l="$c_lim" 'BEGIN{exit !(l+0 > 0)}' 2>/dev/null && MONTHLY_LIMIT="$c_lim"
     fi
 fi
 
@@ -590,7 +600,7 @@ build_locline() {
         read -r a r <<< "$(git -C "$dir" diff --shortstat HEAD 2>/dev/null | parse_shortstat)"
         local u
         # ls-files emits repo-relative paths, so cat must run from the repo too.
-        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z | xargs -0 -r cat 2>/dev/null) | wc -l )
+        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z | xargs -0 cat 2>/dev/null) | wc -l )
         pair=$(fmt_pair $(( a + u )) "$r" hot)
         local cluster=""
         [ -n "$pair" ] && cluster="${CLR_DIM}pending${CLR_RESET} $pair"
@@ -680,4 +690,4 @@ case "${CLAUDE_BUDGET_REPO_LINE:-on}" in
        [ -n "$loc_line" ] && out="$out"$'\n'"$loc_line" ;;
 esac
 
-printf '%b' "$out"
+printf '%s' "$out"

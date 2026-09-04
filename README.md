@@ -17,8 +17,11 @@ pricing to drift.
 
 > **Note on the data source.** The script calls `api.anthropic.com/api/oauth/usage`
 > with the CLI's own OAuth token — the same request the `/usage` command makes.
-> That endpoint is not publicly documented and may change without notice; if it
-> does, the budget bars go blank and the rest of the line keeps working.
+> The token is read from the CLI's credentials file, sent only to that host, and
+> never written to disk or logged; the cache holds dollar totals only. The
+> endpoint is not publicly documented and may change without notice; if it
+> does, the budget bars go blank and the rest of the line keeps working. This
+> project is not affiliated with or supported by Anthropic.
 
 ## Install
 
@@ -70,17 +73,22 @@ bash statusline/budget-statusline.sh --holidays 2027
 
 ## Prerequisites
 
-- **A Claude Code login through claude.ai.** The budget bars read the CLI's
-  OAuth token from `~/.claude/.credentials.json`. With an API key instead of a
-  login there is no token, and the bars stay hidden; the rest of the line
-  still renders.
+- **A Claude Code login through claude.ai on a plan that reports dollar
+  spend.** The budget bars read the CLI's OAuth token from
+  `~/.claude/.credentials.json` and need the usage response to carry a
+  month-to-date dollar figure, which organization plans with spend billing
+  do. With an API key there is no token; with a plan whose `/usage` page
+  shows no dollar amount there is no figure. In both cases the bars stay
+  hidden and the rest of the line still renders.
 - `bash`, `jq`, `curl`, `awk`, and GNU `date`, `stat`, `readlink`.
 - `git` — only for the branch and diff segment; blank without it.
 
 Linux and devcontainers work as-is. **macOS:** the script uses GNU `date -d`,
 `stat -c`, and `readlink -f`. Install coreutils (`brew install coreutils`) and
 either put the `g`-prefixed tools first on `PATH` or alias `date`, `stat`, and
-`readlink` to `gdate`, `gstat`, `greadlink` for the script.
+`readlink` to `gdate`, `gstat`, `greadlink` for the script. Untested on macOS;
+in particular, if Claude Code keeps the token in the Keychain rather than the
+credentials file there, the bars will stay hidden.
 
 ## How the daily number works
 
