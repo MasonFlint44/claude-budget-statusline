@@ -39,6 +39,9 @@ HOLIDAY_RULES="${CLAUDE_BUDGET_HOLIDAYS:-$SCRIPT_DIR/config/holidays.conf}"
 #                           a fifth that the month lacks is skipped)
 #   last  DOW MM     name   last weekday of a month
 #   date  YYYY-MM-DD name   a one-off date (no weekend shift)
+#   observe nearest|monday|none   how a fixed date on a weekend is observed:
+#                           nearest = Sat->Fri, Sun->Mon (default, US federal);
+#                           monday = both -> following Monday; none = no shift
 # Lines that don't parse are skipped (reported on stderr by --holidays).
 
 dow_num() {  # mon..sun -> 1..7 (matches date +%u); empty if unknown
@@ -54,8 +57,10 @@ is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 # Print "YYYY-MM-DD<TAB>name" for every rule in $1 evaluated for year $2.
 # Observed shifts may land in an adjacent month or year (Jan 1 -> Dec 31).
 holidays_for_year() {
-    local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0
+    local conf="$1" y="$2" line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno=0 observe
     [ -r "$conf" ] || return 0
+    observe=$(awk '$1=="observe"{o=$2} END{print o}' "$conf")
+    case "$observe" in nearest|monday|none) ;; *) observe=nearest ;; esac
     while IFS= read -r line || [ -n "$line" ]; do
         lineno=$((lineno + 1))
         line="${line%%#*}"
@@ -63,12 +68,18 @@ holidays_for_year() {
         [ -n "$kind" ] || continue
         d=""; name=""
         case "$kind" in
+            observe)
+                case "$f1" in nearest|monday|none) ;; *)
+                    [ -n "${HOLIDAYS_VERBOSE:-}" ] && echo "holidays: line $lineno: unknown observe '$f1', using nearest" >&2 ;;
+                esac
+                continue ;;
             fixed)
                 name="$f2 $f3 $rest"
                 if read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
-                    case "$dow" in
-                        6) d=$(date -d "$d -1 day" +%F) ;;
-                        7) d=$(date -d "$d +1 day" +%F) ;;
+                    case "$observe:$dow" in
+                        nearest:6) d=$(date -d "$d -1 day" +%F) ;;
+                        nearest:7|monday:7) d=$(date -d "$d +1 day" +%F) ;;
+                        monday:6) d=$(date -d "$d +2 day" +%F) ;;
                     esac
                 fi ;;
             nth)
@@ -634,8 +645,11 @@ else
     if [ -n "$line2" ]; then [ -n "$out" ] && out="$out"$'\n'"$line2" || out="$line2"; fi
 fi
 
-# Location + churn always get their own final row.
-loc_line=$(build_locline)
-[ -n "$loc_line" ] && out="$out"$'\n'"$loc_line"
+# Location + git + churn get their own final row unless switched off.
+case "${CLAUDE_BUDGET_LOCATION:-on}" in
+    0|off|no|false) ;;
+    *) loc_line=$(build_locline)
+       [ -n "$loc_line" ] && out="$out"$'\n'"$loc_line" ;;
+esac
 
 printf '%b' "$out"

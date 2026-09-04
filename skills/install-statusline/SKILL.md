@@ -34,7 +34,7 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    ```
    with `<CFG>` expanded to the real path. If a different `statusLine` is already set, say so and ask before replacing it. Never touch any other key.
 
-5. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). The budget bars show blank on the first render and fill within a minute once the background fetch has run. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_HOLIDAYS`).
+5. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). The budget bars show blank on the first render and fill within a minute once the background fetch has run. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_HOLIDAYS`, `CLAUDE_BUDGET_LOCATION`).
 
 ## Do not
 

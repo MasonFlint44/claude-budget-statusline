@@ -2,7 +2,8 @@
 
 A two-line statusline for Claude Code: model, effort, context use, session
 cost and two budget bars on the first line; directory, branch and diff on the
-second. The budget bars:
+second (switch the second line off with `CLAUDE_BUDGET_LOCATION=off`). The
+budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
   month's *remaining* budget evenly over the remaining workdays of the month
@@ -48,11 +49,10 @@ the background fetch has run.
 | `statusline/config/holidays.conf` | the holiday calendar — ships with the US federal holidays; edit to match your company's, add your own closures or PTO as `date` lines. Yours once installed: the installer never overwrites it |
 
 Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
-or `date YYYY-MM-DD`, each followed by a name. Fixed dates that land on a
-weekend are observed on the nearest weekday (Saturday → Friday, Sunday →
-Monday, the US federal convention). If your employer observes differently,
-list those years' actual days as `date` lines instead of a `fixed` rule. To
-check the calendar:
+or `date YYYY-MM-DD`, each followed by a name. An `observe` line says how a
+fixed date that lands on a weekend is observed: `nearest` (Saturday → Friday,
+Sunday → Monday; the US federal convention and the default), `monday` (both →
+the following Monday), or `none`. To check the calendar:
 
 ```
 bash statusline/budget-statusline.sh --holidays 2027
@@ -93,6 +93,8 @@ mounts `~/.claude` carries them along).
 - `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60. The
   fetch runs detached and never blocks a render.
 - `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default.
+- `CLAUDE_BUDGET_LOCATION` — `off` hides the second line (directory, branch,
+  diff), leaving only the first. Default on.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
 Set knobs in the environment Claude Code starts from, or inline in the
