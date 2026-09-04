@@ -38,7 +38,7 @@ on each version update, which is why the install step exists.
 then add to `~/.claude/settings.json`:
 
 ```json
-"statusLine": { "command": "bash /path/to/statusline/budget-statusline.sh" }
+"statusLine": { "type": "command", "command": "bash /path/to/statusline/budget-statusline.sh" }
 ```
 
 No restart needed: Claude Code picks up the change on its next refresh. The
@@ -72,6 +72,10 @@ To check the calendar:
 bash statusline/budget-statusline.sh --holidays 2027
 ```
 
+The listing is by the holiday's own year, so a New Year's Day observed on the
+previous December 30 or 31 appears under the new year, the way official
+calendars print it. The workday math itself goes by the observed date.
+
 ## Prerequisites
 
 - **A Claude Code login through claude.ai on a plan that reports dollar
@@ -81,15 +85,18 @@ bash statusline/budget-statusline.sh --holidays 2027
   do. With an API key there is no token; with a plan whose `/usage` page
   shows no dollar amount there is no figure. In both cases the bars stay
   hidden and the rest of the line still renders.
-- `bash`, `jq`, `curl`, `awk`, and GNU `date`, `stat`, `readlink`.
+- `bash` 4+, `jq`, `curl`, `awk`, GNU coreutils (`date -d`, `readlink -f`,
+  `sort`, `tr`, `wc`, and friends) and findutils (`xargs`).
 - `git` — only for the branch and diff segment; blank without it.
+- `tput` — optional, for the terminal width when `COLUMNS` is unset.
 
-Linux and devcontainers work as-is. **macOS:** the script uses GNU `date -d`,
-`stat -c`, and `readlink -f`. Install coreutils (`brew install coreutils`) and
-either put the `g`-prefixed tools first on `PATH` or alias `date`, `stat`, and
-`readlink` to `gdate`, `gstat`, `greadlink` for the script. Untested on macOS;
-in particular, if Claude Code keeps the token in the Keychain rather than the
-credentials file there, the bars will stay hidden.
+Linux and devcontainers work as-is. **macOS:** the BSD `date` and `readlink`
+don't take the flags the script uses. Install coreutils
+(`brew install coreutils`) and put its unprefixed tools first on the `PATH`
+the statusline command sees, e.g. `"command": "PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH bash /path/to/budget-statusline.sh"`
+(shell aliases don't reach a script). Untested on macOS; in particular, if
+Claude Code keeps the token in the Keychain rather than the credentials file
+there, the bars will stay hidden.
 
 ## How the daily number works
 
@@ -108,11 +115,15 @@ mounts `~/.claude` carries them along).
   is the limit the bars use even if the org's is higher; unset, the limit in
   the usage response is used. With neither the budget bars stay hidden.
 - `CLAUDE_BUDGET_TZ` — the clock the day bar and workday count run on, as a
-  time zone name (`UTC`, `America/New_York`). Default: local time.
-- `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60. The
-  fetch runs detached and never blocks a render.
+  time zone name (`UTC`, `America/New_York`). Default: local time. A name the
+  system doesn't know silently means UTC, as with `TZ`.
+- `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60,
+  minimum 10; anything else falls back to 60. The fetch runs detached and
+  never blocks a render. A failed fetch waits one interval before retrying,
+  and an HTTP 429 waits five minutes.
 - `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default;
-  `off` disables holidays entirely (every weekday counts as a workday).
+  `off` (or `none`, `0`, `false`) disables holidays entirely (every weekday
+  counts as a workday).
 - `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
   diff), leaving only the first. Default on.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.

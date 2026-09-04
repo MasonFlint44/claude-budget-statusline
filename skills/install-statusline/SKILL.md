@@ -30,7 +30,7 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
 
 4. **Wire settings.** Read `$CFG/settings.json`. Show the user the exact change before making it, then set:
    ```json
-   "statusLine": { "command": "bash <CFG>/statusline/budget-statusline.sh" }
+   "statusLine": { "type": "command", "command": "bash <CFG>/statusline/budget-statusline.sh" }
    ```
    with `<CFG>` expanded to the real path. If a different `statusLine` is already set, say so and ask before replacing it. Never touch any other key.
 

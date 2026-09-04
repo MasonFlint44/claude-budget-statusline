@@ -27,9 +27,12 @@
 # With neither, the budget bars stay hidden.
 #
 # Wire-up (~/.claude/settings.json):
-#   "statusLine": { "command": "bash /path/to/budget-statusline.sh" }
+#   "statusLine": { "type": "command", "command": "bash /path/to/budget-statusline.sh" }
 
-export LC_NUMERIC=C   # printf '%.0f' must parse "42.5" regardless of the user's locale
+# printf '%.0f' must parse "42.5" regardless of the user's locale. LC_ALL
+# would override LC_NUMERIC, so fold it into the category-level settings.
+if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL" LC_TIME="$LC_ALL"; unset LC_ALL; fi
+export LC_NUMERIC=C
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
 # The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
 BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
@@ -70,18 +73,21 @@ is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 # forward past Jan 1 lands on Jan 2). Callers pass the neighbouring years.
 holidays_for_years() {
     local conf="$1" y line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno
-    local obs_sat=prev obs_sun=next tok pol used=$'\n' deferred="" step i warn="${HOLIDAYS_VERBOSE:-}"
+    local obs_sat=prev obs_sun=next tok pol used=$'\n' deferred="" step i warn warnyear
     shift
     [ -n "$conf" ] && [ -r "$conf" ] || return 0
+    warnyear="${2:-$1}"   # report bad lines for the year of interest (the middle one), once
     for y in "$@"; do
         lineno=0
+        warn=""; [ "$y" = "$warnyear" ] && warn="${HOLIDAYS_VERBOSE:-}"
         while IFS= read -r line || [ -n "$line" ]; do
             lineno=$((lineno + 1))
             line="${line%$'\r'}"
+            line="${line#$'\xef\xbb\xbf'}"   # UTF-8 BOM on the first line
             line="${line%%#*}"
             read -r kind f1 f2 f3 rest <<< "$line"
             [ -n "$kind" ] || continue
-            d=""; name=""
+            d=""; name=""; skipwhy=""
             case "$kind" in
                 observe)
                     for tok in $f1 $f2 $f3 $rest; do
@@ -95,7 +101,7 @@ holidays_for_years() {
                     continue ;;
                 fixed)
                     name="$f2 $f3 $rest"
-                    case "$f1" in [0-9][0-9]-[0-9][0-9]|[0-9]-[0-9][0-9]|[0-9][0-9]-[0-9]|[0-9]-[0-9]) ;; *) f1="" ;; esac
+                    case "$f1" in [0-9][0-9]-[0-9][0-9]|[0-9]-[0-9][0-9]|[0-9][0-9]-[0-9]|[0-9]-[0-9]) skipwhy="no such date in $y" ;; *) f1="" ;; esac
                     if [ -n "$f1" ] && read -r dow d < <(date -d "$y-$f1" +'%u %F' 2>/dev/null) && [ -n "$d" ]; then
                         if [ "$dow" -ge 6 ]; then
                             # Weekend: decided in pass 2, once every year's
@@ -112,7 +118,8 @@ holidays_for_years() {
                         dim=$(date -d "$y-$mm-01 +1 month -1 day" +%d)
                         n=$((10#$n))
                         day=$(( 1 + (dow - first + 7) % 7 + 7 * (n - 1) ))
-                        [ "$day" -le "$((10#$dim))" ] && d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
+                        if [ "$day" -le "$((10#$dim))" ]; then d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
+                        else skipwhy="no such weekday in $y"; fi
                     fi ;;
                 last)
                     name="$f3 $rest"; dow=$(dow_num "$f1"); mm="$f2"
@@ -129,14 +136,14 @@ holidays_for_years() {
                     esac ;;
             esac
             if [ -z "$d" ]; then
-                [ -n "$warn" ] && echo "holidays: skipping line $lineno: $line" >&2
+                [ -n "$warn" ] && echo "holidays: skipping line $lineno (${skipwhy:-cannot parse}): $line" >&2
                 continue
             fi
             name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
+            case "$used" in *$'\n'"$d"$'\n'*) continue ;; esac   # same date listed twice
             used="$used$d"$'\n'
             printf '%s\t%s\t%s\n' "$d" "$y" "${name:-holiday}"
         done < "$conf"
-        warn=""   # report each bad line once, not once per year
     done
     # Pass 2: shift weekend holidays, earliest first, to the nearest free working day.
     [ -n "$deferred" ] || return 0
@@ -152,7 +159,7 @@ holidays_for_years() {
         done
         used="$used$d"$'\n'
         printf '%s\t%s\t%s\n' "$d" "$y" "$name"
-    done < <(printf '%s' "$deferred" | sort)
+    done < <(printf '%s' "$deferred" | sort -u -t $'\t' -k1,1)
 }
 
 # Days-of-month (space separated) that are holidays in $1-$2 (YYYY MM).
@@ -167,6 +174,7 @@ holidays_in_month() {
 if [ "${1:-}" = "--holidays" ]; then
     [ -n "$HOLIDAY_RULES" ] || { echo "holidays: disabled (CLAUDE_BUDGET_HOLIDAYS=$CLAUDE_BUDGET_HOLIDAYS)" >&2; exit 0; }
     [ -r "$HOLIDAY_RULES" ] || { echo "holidays: no rules file at $HOLIDAY_RULES (plain weekday counting)" >&2; exit 0; }
+    case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) ;; *) echo "usage: $0 --holidays [YYYY]" >&2; exit 2 ;; esac
     y=$((10#${2:-$(bdate +%Y)}))
     HOLIDAYS_VERBOSE=1 holidays_for_years "$HOLIDAY_RULES" $((y - 1)) $y $((y + 1)) \
         | awk -F'\t' -v y="$y" '$2==y' | sort \
@@ -175,6 +183,7 @@ if [ "${1:-}" = "--holidays" ]; then
 fi
 
 input=$(cat)
+printf '%s' "$input" | jq -e . >/dev/null 2>&1 || input='{}'   # garbage stdin: render an empty line, quietly
 
 # ANSI color codes
 CLR_DIM=$'\033[2m'
@@ -252,6 +261,7 @@ bar() {
     # Filled and empty block counts based on full width
     local filled=$(printf '%.0f' "$(echo "$pct $width" | awk '{printf "%f", $1 * $2 / 100}')")
     [ "$filled" -gt "$width" ] && filled=$width
+    [ "$filled" -lt 0 ] && filled=0
     local empty=$(( width - filled ))
 
     local fill_str empty_str color
@@ -294,7 +304,9 @@ fmt_money() {
 # month counter resets at 00:00 UTC on the last day, so if the budget clock
 # lags UTC that evening's baseline re-pins via the month<baseline guard and
 # the day bar shows only post-reset spend until midnight.
+is_num() { case "$1" in ''|*[!0-9.]*|*.*.*|.) return 1 ;; *) return 0 ;; esac; }
 MONTHLY_LIMIT="${CLAUDE_BUDGET_MONTHLY_LIMIT:-0}"   # your own monthly target; 0 = use the response's limit
+is_num "$MONTHLY_LIMIT" || MONTHLY_LIMIT=0
 # Cache lives INSIDE the config dir (not ~/.cache) so a devcontainer that mounts
 # ~/.claude gets the credentials, the cache, and the day-start baseline together.
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -302,39 +314,49 @@ CACHE_DIR="$CLAUDE_DIR/cache/statusline"
 CACHE_FILE="$CACHE_DIR/budget-usage"
 BASE_FILE="$CACHE_DIR/budget-usage.daystart"
 LOCK_DIR="$CACHE_DIR/budget-usage.lock"
+HOLD_FILE="$CACHE_DIR/budget-usage.hold"   # epoch before which no fetch is attempted (after a failure)
 REFRESH_INTERVAL="${CLAUDE_BUDGET_REFRESH:-60}"   # seconds between usage fetches
+is_int "$REFRESH_INTERVAL" || REFRESH_INTERVAL=60
+[ "$REFRESH_INTERVAL" -ge 10 ] || REFRESH_INTERVAL=10
 mkdir -p "$CACHE_DIR" 2>/dev/null
 
 now=$(date +%s)
 today=$(bdate +%Y-%m-%d)
 
 # Fetch month-to-date spend and cache it as
-# "<date> <today-dollars> <month-dollars> <limit-dollars> <holiday-days-of-month...>".
-# Runs detached. Any failure keeps the stale cache.
+# "<date> <fetched-epoch> <today-dollars> <month-dollars> <limit-dollars> <holiday-days-of-month...>".
+# Runs detached. Any failure keeps the stale cache and writes a hold so the
+# next renders don't retry until the refresh interval has passed (5 minutes
+# after an HTTP 429).
+hold() { printf '%s\n' "$(( now + ${1:-$REFRESH_INTERVAL} ))" > "$HOLD_FILE" 2>/dev/null; }
 refresh_usage() {
     local creds="$CLAUDE_DIR/.credentials.json"
-    [ -r "$creds" ] || return
+    [ -r "$creds" ] || { hold; return; }
     local tok exp
     tok=$(jq -r '.claudeAiOauth.accessToken // empty' "$creds" 2>/dev/null)
-    [ -n "$tok" ] || return
+    [ -n "$tok" ] || { hold; return; }
     # Expired token (expiresAt is epoch milliseconds): the CLI refreshes the
-    # credentials file on its own; serve the stale cache until it does.
-    exp=$(jq -r '(.claudeAiOauth.expiresAt // 0) | floor' "$creds" 2>/dev/null)
-    [ "${exp:-0}" -gt "$(( now * 1000 ))" ] 2>/dev/null || return
-    local resp
+    # credentials file on its own; serve the stale cache until it does. A
+    # missing or unreadable expiry is treated as "try".
+    exp=$(jq -r '(.claudeAiOauth.expiresAt? // empty) | numbers | floor' "$creds" 2>/dev/null)
+    if [ -n "$exp" ] && ! [ "$exp" -gt "$(( now * 1000 ))" ] 2>/dev/null; then hold; return; fi
+    local resp code
     # The token travels in a curl config piped from the printf builtin: never
     # in argv (ps), never in a temp file (a heredoc would be one on bash < 5.1).
+    # The HTTP status rides as the last line of the output.
     resp=$(printf '%s\n' 'url = "https://api.anthropic.com/api/oauth/usage"' \
                           "header = \"Authorization: Bearer $tok\"" \
                           'header = "anthropic-beta: oauth-2025-04-20"' \
-           | curl -s -m 5 -K -) || return
-    [ -n "$resp" ] || return
+           | curl -s -m 5 -w '\n%{http_code}' -K -) || { hold; return; }
+    code="${resp##*$'\n'}"; resp="${resp%$'\n'*}"
+    if [ "$code" = 429 ]; then hold 300; return; fi
+    [ -n "$resp" ] || { hold; return; }
     local month limit
     read -r month limit <<< "$(printf '%s' "$resp" | jq -r '
         if (.spend.used.amount_minor? // null) != null then
             "\((.spend.used.amount_minor // 0) / 100) \((.spend.limit.amount_minor // .spend.cap.credits.amount_minor // 0) / 100)"
         else empty end' 2>/dev/null)"
-    [ -n "$month" ] || return
+    [ -n "$month" ] || { hold; return; }
     # Your own target wins over the org's; neither -> 0 -> bars hidden.
     awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' && limit="$MONTHLY_LIMIT"
     awk -v l="$limit" 'BEGIN{exit !(l > 0)}' || limit=0
@@ -350,36 +372,42 @@ refresh_usage() {
     # This month's holidays (days-of-month) from config/holidays.conf.
     local hol
     hol=$(holidays_in_month "$(bdate +%Y)" "$(bdate +%m)")
-    printf '%s %s %s %s %s\n' "$today" "$day" "$month" "$limit" "$hol" > "$CACHE_FILE.tmp" 2>/dev/null \
-        && mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null
+    printf '%s %s %s %s %s %s\n' "$today" "$now" "$day" "$month" "$limit" "$hol" > "$CACHE_FILE.tmp" 2>/dev/null \
+        && mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null && rm -f "$HOLD_FILE" 2>/dev/null
 }
 
-# Decide whether to trigger a background refresh.
-cache_age=$(( now - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0) ))
-# A cache dated in the future (clock skew, e.g. a host-mounted dir) counts as stale.
-if [ ! -f "$CACHE_FILE" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; then
-    # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge
-    # permanently. Rename-then-remove so two renders can't both claim it.
-    if [ -d "$LOCK_DIR" ]; then
-        lock_age=$(( now - $(stat -c %Y "$LOCK_DIR" 2>/dev/null || echo "$now") ))
-        [ "$lock_age" -gt 300 ] && mv "$LOCK_DIR" "$LOCK_DIR.stale.$$" 2>/dev/null && rmdir "$LOCK_DIR.stale.$$" 2>/dev/null
-    fi
-    # mkdir is atomic: only one refresher runs at a time.
-    if mkdir "$LOCK_DIR" 2>/dev/null; then
-        ( refresh_usage; rmdir "$LOCK_DIR" 2>/dev/null ) >/dev/null 2>&1 &
-        disown 2>/dev/null
-    fi
-fi
-
-is_num() { case "$1" in ''|*[!0-9.]*|*.*.*|.) return 1 ;; *) return 0 ;; esac; }
-day_cost=""; mo_cost=""; hol_doms=""
+# Read the cache. Its age comes from the stamp inside the line, not the file's
+# mtime, so nothing here depends on stat(1).
+day_cost=""; mo_cost=""; hol_doms=""; cache_age=""
 if [ -f "$CACHE_FILE" ]; then
-    read -r c_date c_day c_mo c_lim c_hol < "$CACHE_FILE" 2>/dev/null
+    read -r c_date c_stamp c_day c_mo c_lim c_hol < "$CACHE_FILE" 2>/dev/null
+    is_int "$c_stamp" && cache_age=$(( now - c_stamp ))
     # Yesterday's cache would misreport its daily total as today's: hide instead.
     # A garbled line (non-numeric fields) is treated as no cache.
     if [ "$c_date" = "$today" ] && is_num "$c_day" && is_num "$c_mo"; then
         day_cost="$c_day"; mo_cost="$c_mo"; hol_doms="$c_hol"
         is_num "$c_lim" && awk -v l="$c_lim" 'BEGIN{exit !(l+0 > 0)}' 2>/dev/null && MONTHLY_LIMIT="$c_lim"
+    fi
+fi
+
+# Decide whether to trigger a background refresh: no usable cache, or one
+# older than the interval (a future stamp = clock skew, also stale), and no
+# hold from a recent failed fetch.
+hold_until=$(cat "$HOLD_FILE" 2>/dev/null); is_int "$hold_until" || hold_until=0
+if { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; } \
+   && [ "$now" -ge "$hold_until" ]; then
+    # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge
+    # permanently. The lock's own stamp file dates it; rename-then-remove so
+    # two renders can't both claim it.
+    if [ -d "$LOCK_DIR" ]; then
+        lock_stamp=$(cat "$LOCK_DIR/stamp" 2>/dev/null); is_int "$lock_stamp" || lock_stamp=0
+        [ $(( now - lock_stamp )) -gt 300 ] && mv "$LOCK_DIR" "$LOCK_DIR.stale.$$" 2>/dev/null && rm -rf "$LOCK_DIR.stale.$$" 2>/dev/null
+    fi
+    # mkdir is atomic: only one refresher runs at a time.
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        printf '%s\n' "$now" > "$LOCK_DIR/stamp" 2>/dev/null
+        ( refresh_usage; rm -rf "$LOCK_DIR" 2>/dev/null ) >/dev/null 2>&1 &
+        disown 2>/dev/null
     fi
 fi
 
@@ -420,7 +448,7 @@ model=$(echo "$input" | jq -r '.model.display_name // empty')
 effort=$(echo "$input" | jq -r '.effort.level // empty')
 
 # Context usage
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty | numbers')
 
 # Session cost (real-time, already in the input)
 session_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
@@ -580,7 +608,7 @@ build_locline() {
     # so a deep cwd can't push the interesting right side of the line off-screen.
     local disp="${dir/#$HOME/\~}"
     if [ ${#disp} -gt 35 ]; then
-        disp=$(awk -v p="$disp" 'BEGIN{n=split(p,a,"/"); o=a[1]; for(i=2;i<n;i++) o=o"/"substr(a[i],1,1); print o"/"a[n]}')
+        disp=$(p="$disp" awk 'BEGIN{n=split(ENVIRON["p"],a,"/"); o=a[1]; for(i=2;i<n;i++) o=o"/"substr(a[i],1,1); print o"/"a[n]}')
     fi
     local s="${CLR_DIM}${disp}${CLR_RESET}"
 
@@ -606,7 +634,7 @@ build_locline() {
         read -r a r <<< "$(git -C "$dir" diff --shortstat HEAD 2>/dev/null | parse_shortstat)"
         local u
         # ls-files emits repo-relative paths, so cat must run from the repo too.
-        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z | xargs -0 cat 2>/dev/null) | wc -l )
+        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 cat 2>/dev/null) | wc -l )
         pair=$(fmt_pair $(( a + u )) "$r" hot)
         local cluster=""
         [ -n "$pair" ] && cluster="${CLR_DIM}pending${CLR_RESET} $pair"
@@ -631,7 +659,10 @@ build_locline() {
             elif git -C "$dir" show-ref --verify -q refs/heads/master; then def=master; fi
         fi
         if [ -n "$def" ] && [ "$branch" != "$def" ]; then
-            read -r a r <<< "$(git -C "$dir" diff --shortstat "$def...HEAD" 2>/dev/null | parse_shortstat)"
+            # A clone that only checked out a feature branch has origin/main but no local main.
+            local defref="$def"
+            git -C "$dir" show-ref --verify -q "refs/heads/$def" || defref="origin/$def"
+            read -r a r <<< "$(git -C "$dir" diff --shortstat "$defref...HEAD" 2>/dev/null | parse_shortstat)"
             pair=$(fmt_pair "$a" "$r" dim)
             [ -n "$pair" ] && s="$s ${CLR_DIM}· vs ${def}${CLR_RESET} $pair"
         fi
