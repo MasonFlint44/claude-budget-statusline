@@ -2,7 +2,19 @@
 
 A two-line statusline for Claude Code: model, effort, context use, session
 cost and two budget bars on the first line; directory, branch and diff on the
-second (switch the second line off with `CLAUDE_BUDGET_REPO_LINE=off`). The
+second (switch the second line off with `CLAUDE_BUDGET_REPO_LINE=off`).
+
+![the statusline as rendered in a terminal](docs/preview.svg)
+
+```
+Opus · high | ctx:██████░░░░░░░░░ 43% $3.72 | day:██████████░░░░░ 64% $9.40/$15 month:█████░░░░░░░░░░ 36% $143/$400
+~/claude-budget-statusline ⎇  feature/preview · pending +16 · vs main +30 · session +118/-27
+```
+
+A Friday afternoon: $9.40 of today's $15 allowance spent, $143 of the $400
+month. The same line on a Saturday reads `off:` instead of `day:`; past the
+limit the month bar pegs and a coral `+$20` follows it; once no fetch has
+succeeded for five minutes a dim `·12m` age tag closes the segment. The
 budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
@@ -30,12 +42,20 @@ billing, where the `/usage` page shows dollars; see Prerequisites.
 
 ## Install
 
-**As a Claude Code plugin** (the repo is one): add it from a marketplace that
-lists it, then run `/install-statusline`. The skill copies the files to
-`~/.claude/statusline/` and adds the `statusLine` line to your settings, showing
-you the change before writing it. Re-run after a plugin update to refresh the
-copy. Plugins can't set `statusLine` themselves and the plugin directory moves
-on each version update, which is why the install step exists.
+**As a Claude Code plugin**, from the `claude-statuslines` marketplace:
+
+```
+/plugin marketplace add MasonFlint44/claude-statuslines
+/plugin install budget-statusline@claude-statuslines
+/install-statusline
+```
+
+The install skill copies the files to `~/.claude/statusline/`, adds the
+`statusLine` line to your settings (showing you the change before writing
+it), and runs the doctor once so the bars are filled on the first render.
+Re-run it after a plugin update to refresh the copy. Plugins can't set
+`statusLine` themselves and the plugin directory moves on each version
+update, which is why the install step exists.
 
 **By hand:** copy the `statusline/` directory somewhere stable, keeping its
 `config/` subfolder (the script finds it relative to itself),
@@ -102,6 +122,22 @@ date.
 The `/budget-calendar` skill edits the installed calendar for you: "add PTO
 next week", "we work Sunday to Thursday", "show my budget calendar".
 
+## When the bars are blank
+
+Every failure hides the bars the same way, so the script can explain itself:
+
+```
+bash ~/.claude/statusline/budget-statusline.sh --doctor
+```
+
+runs the refresh in the foreground one step at a time (credentials, a live
+fetch of the usage endpoint, the limit, the cache) and stops at the first
+failing step with the reason and the fix; exit 1 means the bars would stay
+hidden. Run it with any knobs your `statusLine` command sets. The
+`/budget-doctor` skill does the same from inside Claude Code ("my budget
+bars are blank"), finding the installed script for you. `--help` lists the
+flags and knobs.
+
 ## Prerequisites
 
 - **A Claude Code login through claude.ai on a plan that reports dollar
@@ -117,11 +153,20 @@ next week", "we work Sunday to Thursday", "show my budget calendar".
 - `git` — only for the branch and diff segment; blank without it.
 - `tput` — optional, for the terminal width when `COLUMNS` is unset.
 
-Linux and devcontainers work as-is. **macOS:** needs a bash 4.4+ from
-Homebrew (the system bash is 3.2) named in the `statusLine` command, and
-`readlink -f`, which macOS has had since 12.3. Untested on macOS; in
-particular, if Claude Code keeps the token in the Keychain rather than the
-credentials file there, the bars will stay hidden.
+Linux and devcontainers work as-is and are what the test suite runs on.
+Other platforms, untested so far (reports welcome):
+
+- **macOS:** needs a bash 4.4+ from Homebrew (the system bash is 3.2)
+  named in the `statusLine` command, and `readlink -f`, which macOS has had
+  since 12.3. Claude Code keeps the token in the Keychain there rather than
+  in the credentials file; when the file is absent the script asks the
+  Keychain for the `Claude Code-credentials` item (the first read may
+  prompt once for access; allow it always). `--doctor` shows which source
+  it used.
+- **Windows:** through Git for Windows' bash, which Claude Code uses as its
+  shell when present; `jq` must be installed separately (`winget install
+  jqlang.jq`). The credentials file is where the script expects it. WSL
+  counts as Linux.
 
 ## How the daily number works
 
@@ -145,7 +190,10 @@ mounts `~/.claude` carries them along).
 - `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60,
   minimum 10; anything else falls back to 60. The fetch runs detached and
   never blocks a render. A failed fetch waits one interval before retrying,
-  and an HTTP 429 waits five minutes.
+  and an HTTP 429 waits five minutes. While fetches keep failing the last
+  figures stay up, with a dim age tag (`·12m`, `·3h`) after the bars from
+  five minutes on; at midnight they hide, since yesterday's daily total
+  would be wrong for today.
 - `CLAUDE_BUDGET_CALENDAR` — path to a calendar file, if not the default;
   `off` means no file at all: a Monday-to-Friday week with no holidays.
 - `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
@@ -183,9 +231,12 @@ and nothing is installed system-wide. One file per area:
 | `repoline.bats` | the location row against a scratch git repository with a remote |
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |
+| `doctor.bats` | `--doctor` and `--help`: every step's failure line and exit status, the Keychain fallback through a fake `security` (and that Linux never calls it) |
 | `live.bats` | the drift probe: the real endpoint with your own credentials, only with `LIVE=1`, never in CI. Fails when the response no longer has the shape recorded in `tests/fixtures/usage-response.json` |
 
-CI runs the suite on every push.
+CI runs the suite and `shellcheck` on every push. `docs/preview.py`
+regenerates the README preview from the script itself (python3, git and
+libfaketime), so the picture cannot drift from the code.
 
 The two skills are prose for the model, so they are checked differently:
 `tests/skills/run.sh` runs each case under `tests/skills/cases/` through
