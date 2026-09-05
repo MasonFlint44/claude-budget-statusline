@@ -29,7 +29,7 @@
 # Wire-up (~/.claude/settings.json):
 #   "statusLine": { "type": "command", "command": "bash /path/to/budget-statusline.sh" }
 
-# printf '%.0f' must parse "42.5" regardless of the user's locale, and the
+# printf and awk must parse "42.5" regardless of the user's locale, and the
 # --calendar listing prints English day and month names whatever the locale
 # (its own notes and headers are English). LC_ALL would override both, so
 # keep only its character set and pin the numeric and time categories.
@@ -384,15 +384,22 @@ effort_color() {
 # e.g. bar 42 10 -> █████░░░░░ 42%  (width = number of block characters)
 # Fill color: continuous green -> gold -> coral ramp, see ramp_color().
 # Percentages over 100 peg the fill and keep counting in the label.
+# Round a non-negative decimal string half-up ("12.5" -> 13, "42.6" -> 43).
+# printf '%.0f' would round halves to even, and awk's %d truncates.
+round() {
+    local i="${1%%.*}" f=""
+    [ "$i" != "$1" ] && f="${1#*.}"
+    case "$f" in [5-9]*) printf '%d' $(( 10#${i:-0} + 1 )) ;; *) printf '%d' $(( 10#${i:-0} )) ;; esac
+}
 bar() {
     local pct="${1:-0}"
     local width="${2:-10}"
 
     local pct_int
-    pct_int=$(printf '%.0f' "$pct")
+    pct_int=$(round "$pct")
 
     # Filled and empty block counts based on full width
-    local filled=$(printf '%.0f' "$(echo "$pct $width" | awk '{printf "%f", $1 * $2 / 100}')")
+    local filled=$(awk -v p="$pct" -v w="$width" 'BEGIN{printf "%d", int(p * w / 100 + 0.5)}')
     [ "$filled" -gt "$width" ] && filled=$width
     [ "$filled" -lt 0 ] && filled=0
     local empty=$(( width - filled ))
@@ -412,9 +419,9 @@ bar() {
 # Format a dollar amount compactly: <1000 -> $123, >=1000 -> $1.3k
 fmt_money() {
     awk -v v="$1" 'BEGIN{
-        if (v >= 1000) printf "$%.1fk", v/1000;
-        else if (v >= 10) printf "$%.0f", v;
-        else printf "$%.2f", v;
+        if (v >= 1000) printf "$%.1fk", int(v / 100 + 0.5) / 10;   # half-up, not printf'"'"'s half-even
+        else if (v >= 10) printf "$%d", int(v + 0.5);
+        else printf "$%.2f", int(v * 100 + 0.5) / 100;
     }'
 }
 
@@ -569,7 +576,7 @@ if [ -n "$day_cost" ] && awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' 2>/dev
         else { dp = d * 100 / allow; if (dp > 999) dp = 999 }
         mp = m * 100 / lim; if (mp > 999) mp = 999
         over = m - lim; if (over < 0) over = 0
-        printf "%d %.6g %d %.6g", dp, allow, mp, over
+        printf "%d %.6g %d %.6g", int(dp + 0.5), allow, int(mp + 0.5), over   # half-up
     }')"
 fi
 
@@ -613,7 +620,7 @@ BAR_NOM=16; BAR_MIN=10
 # Precompute the variable-length text pieces so we can measure the fixed
 # "chrome" (everything that isn't bar blocks) exactly.
 [ -n "$session_cost" ] && session_money=$(fmt_money "$session_cost") || session_money=""
-ctx_i=$( [ -n "$used_pct" ] && printf '%.0f' "$used_pct" || echo "" )
+ctx_i=$( [ -n "$used_pct" ] && round "$used_pct" || echo "" )
 
 have_ctx=0; have_day=0; have_mo=0
 [ -n "$used_pct" ] && have_ctx=1

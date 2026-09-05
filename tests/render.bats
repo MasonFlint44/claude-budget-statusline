@@ -5,24 +5,24 @@ load helpers
 setup() { fresh_config; }
 
 # At NOW (Sat 09-05) on mon-fri, 17 workdays remain after today (Labor Day off):
-# allowance = (400 - (120 - 3.25)) / 17 = 16.66 -> "$17"; 3.25 / 16.66 = 19%.
+# allowance = (400 - (120 - 3.25)) / 17 = 16.66 -> "$17"; 3.25 / 16.66 = 19.5 -> 20%.
 @test "Saturday on a mon-fri week: off label, next workday's slice" {
     cache_line "$NOW" "3.25 120 400 1111100 7"; render "$NOW"
-    assert_has "off:" " 19% " '$3.25/$17' "month:" " 30% " '$120/$400'; assert_lacks "day:"
+    assert_has "off:" " 20% " '$3.25/$17' "month:" " 30% " '$120/$400'; assert_lacks "day:"
 }
-# Seven-day week: 26 days left incl. today -> 283.25 / 26 = 10.9 -> "$11", 28%.
+# Seven-day week, Labor Day off: 25 days left incl. today -> 283.25 / 25 = 11.33 -> "$11"; 28.7 -> 29%.
 @test "Saturday on a seven-day week: day label" {
     cache_line "$NOW" "3.25 120 400 1111111 7"; render "$NOW"
-    assert_has "day:" " 28% " '$3.25/$11'; assert_lacks "off:"
+    assert_has "day:" " 29% " '$3.25/$11'; assert_lacks "off:"
 }
 @test "today listed as a holiday: off label, 25 days ahead" {
     cache_line "$NOW" "3.25 120 400 1111111 5"; render "$NOW"
     assert_has "off:" '$3.25/$11'
 }
-# Mon 09-14: 13 workdays left incl. today -> (400 - 100) / 13 = 23.08 -> "$23"; 20 / 23.08 = 86%.
+# Mon 09-14: 13 workdays left incl. today -> (400 - 100) / 13 = 23.08 -> "$23"; 20 / 23.08 = 86.7 -> 87%.
 @test "a workday: today included in the count" {
     cache_line "2026-09-14 09:30:00" "20 120 400 1111100 7"; render "2026-09-14 09:30:00"
-    assert_has "day:" " 86% " '$20/$23'
+    assert_has "day:" " 87% " '$20/$23'
 }
 @test "budget clock: Fri 20:00 Chicago is still Friday locally" {
     cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7"; render "2026-09-04 20:00:00"
@@ -35,7 +35,7 @@ setup() { fresh_config; }
 }
 @test "month past the limit: pegged bar, overage tag, no day denominator" {
     cache_line "$NOW" "5 450 400 1111100 7"; render "$NOW"
-    assert_has "month:" "112%" '$450/$400' '+$50' "off:" "999%" '$5.00 '; assert_lacks '$5.00/'
+    assert_has "month:" "113%" '$450/$400' '+$50' "off:" "999%" '$5.00 '; assert_lacks '$5.00/'
 }
 @test "month exactly at the limit with nothing spent today: day 0%, no overage" {
     cache_line "$NOW" "0 400 400 1111100 7"; render "$NOW"

@@ -55,7 +55,8 @@ the background fetch has run.
 | `statusline/budget-statusline.sh` | the statusline itself |
 | `statusline/config/calendar.conf` | the calendar — which days you work and which dates are holidays. Ships with a Monday-to-Friday week and the US federal holidays; edit to match yours, add closures or PTO as `once` lines. Yours once installed: the installer never overwrites it |
 
-The calendar is one entry per line:
+The calendar is one entry per line. Keywords, day names and modes are
+case-insensitive; only the names are free text.
 
 - `workdays DAYS` — the days you work: a wrapping range (`mon-fri`, `sun-thu`),
   a list (`mon,tue,wed,thu`), a mix (`mon-wed,fri`) or `all`. Default `mon-fri`;
@@ -165,7 +166,9 @@ UPDATE=1 bats tests/calendar.bats # rewrite the golden listings
 
 [Bats](https://github.com/bats-core/bats-core) (`apt install bats`) plus
 libfaketime (`apt install libfaketime`), so every run sees the same clock:
-Saturday 2026-09-05 in America/Chicago. One file per area:
+Saturday 2026-09-05 in America/Chicago. The locale tests compile a German
+locale into a temp directory with `localedef` (from the `locales` package)
+and nothing is installed system-wide. One file per area:
 
 | File | Covers |
 |------|--------|
@@ -175,7 +178,7 @@ Saturday 2026-09-05 in America/Chicago. One file per area:
 | `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_BUDGET_REFRESH` |
 | `layout.bats` | bar widths across terminal widths, the two-row split, model/effort/context/cost pieces |
 | `repoline.bats` | the location row against a scratch git repository with a remote |
-| `locale.bats` | comma-decimal locales (skipped where `de_DE.UTF-8` is not generated) |
+| `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |
 
 CI runs the suite on every push.

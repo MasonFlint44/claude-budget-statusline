@@ -53,9 +53,14 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
     done
 }
 @test "context percent rounds: 42.6 -> 43%" { at_width 120; assert_has "ctx:" " 43% "; }
-@test "context percent: printf rounds halves to even (12.5 -> 12%, 13.5 -> 14%)" {
-    INPUT='{"context_window":{"used_percentage":12.5}}' render "$NOW"; assert_has " 12% "
-    INPUT='{"context_window":{"used_percentage":13.5}}' render "$NOW"; assert_has " 14% "
+@test "context percent rounds half up: 12.5 -> 13%, 12.49 -> 12%" {
+    INPUT='{"context_window":{"used_percentage":12.5}}' render "$NOW"; assert_has " 13% "
+    INPUT='{"context_window":{"used_percentage":12.49}}' render "$NOW"; assert_has " 12% "
+}
+@test "money rounds half up too: \$12.345 -> \$12.35, \$14.5 -> \$15, \$1250 -> \$1.3k" {
+    INPUT='{"context_window":{"used_percentage":1},"cost":{"total_cost_usd":9.345}}' render "$NOW"; assert_has '$9.35'
+    INPUT='{"context_window":{"used_percentage":1},"cost":{"total_cost_usd":14.5}}' render "$NOW";  assert_has '$15 '
+    INPUT='{"context_window":{"used_percentage":1},"cost":{"total_cost_usd":1250}}' render "$NOW";  assert_has '$1.3k'
 }
 @test "no context figure: no ctx bar" { INPUT='{"model":{"display_name":"Opus"}}' render "$NOW"; assert_lacks "ctx:"; }
 @test "session cost formats by magnitude: \$1.50, \$15, \$1.2k" {

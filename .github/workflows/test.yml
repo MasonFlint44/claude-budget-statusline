@@ -7,10 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install bats, libfaketime, jq and a comma-decimal locale
+      - name: Install bats, libfaketime, jq and the locale sources
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q bats libfaketime jq locales
-          sudo locale-gen de_DE.UTF-8
       - name: Run the suite
         run: bats --print-output-on-failure tests/
