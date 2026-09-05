@@ -148,3 +148,9 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     run cache_contents; assert_has " 113.88 400 "
     render "$NOW"; assert_has "month:" " 28% " '$114/$400'
 }
+@test "spend disabled in the response: no cache, an existing one is dropped, hold one interval" {
+    setup_stamp; printf '2026-09-05 1 3.25 120 400 1111100 7\n' > "$(cache_path)"
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":0,"exponent":2},"limit":{"amount_minor":40000,"exponent":2},"enabled":false}}' refresh "$NOW"
+    [ ! -e "$(cache_path)" ]; assert_near "$(cat "$HOLD")" "$(( STAMP + 60 ))"
+    render "$NOW"; assert_lacks "month:" "day:" "off:"
+}

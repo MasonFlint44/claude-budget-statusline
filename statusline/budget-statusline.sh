@@ -590,15 +590,20 @@ refresh_usage() {
     # Amounts come in minor units with their exponent (12000 with exponent 2
     # = 120.00); the exponent defaults to 2 when absent. The limit is
     # .spend.limit, else .spend.cap.credits.
-    read -r month limit <<< "$(printf '%s' "$resp" | jq -r '
+    # .spend.enabled false = the org has spend billing off and the amounts
+    # mean nothing: drop any cache so the bars hide, like any other no-figure case.
+    local enabled
+    read -r enabled month limit <<< "$(printf '%s' "$resp" | jq -r '
         def dollars: .amount_minor / pow(10; (.exponent // 2));
-        if (.spend.used.amount_minor? // null) != null then
+        if .spend.enabled? == false then "off"
+        elif (.spend.used.amount_minor? // null) != null then
             (.spend.used | dollars) as $m
             | (if (.spend.limit.amount_minor? // null) != null then (.spend.limit | dollars)
                elif (.spend.cap.credits.amount_minor? // null) != null then (.spend.cap.credits | dollars)
                else 0 end) as $l
-            | "\($m) \($l)"
+            | "on \($m) \($l)"
         else empty end' 2>/dev/null)"
+    [ "$enabled" = off ] && rm -f "$CACHE_FILE" 2>/dev/null
     [ -n "$month" ] || { hold; return; }
     # Your own target wins over the org's; neither -> 0 -> bars hidden.
     is_pos "$MONTHLY_LIMIT" && limit="$MONTHLY_LIMIT"
