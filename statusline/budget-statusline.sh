@@ -35,6 +35,7 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
+VERSION=2.1.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 SCRIPT_DIR=$(readlink -f "${BASH_SOURCE[0]:-$0}"); SCRIPT_DIR="${SCRIPT_DIR%/*}"
 # The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
 BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
@@ -354,9 +355,27 @@ count_workdays() {
     WD=$n
 }
 
-case "${1:-}" in --calendar|'') ;; *) echo "usage: $0 [--calendar [YYYY]]  (no flag: render the statusline from stdin)" >&2; exit 2 ;; esac
+usage() {
+    cat <<EOF
+usage: budget-statusline.sh                 render the statusline from Claude Code's JSON on stdin
+       budget-statusline.sh --calendar [YYYY] list the calendar in use: work week, observed holidays,
+                                            this month's workday counts (default: the current year)
+       budget-statusline.sh --doctor          explain the budget bars: credentials, one live fetch of
+                                            the usage endpoint, the limit and the cache; exit 1 if
+                                            the bars would be hidden
+       budget-statusline.sh --help
+Knobs (environment): CLAUDE_BUDGET_MONTHLY_LIMIT CLAUDE_BUDGET_TZ CLAUDE_BUDGET_REFRESH
+                     CLAUDE_BUDGET_CALENDAR CLAUDE_BUDGET_REPO_LINE CLAUDE_CONFIG_DIR
+budget-statusline $VERSION  https://github.com/MasonFlint44/claude-budget-statusline
+EOF
+}
+case "${1:-}" in
+    --calendar|--doctor|'') ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+esac
 if [ "${1:-}" = "--calendar" ]; then
-    case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) [ $# -le 2 ] ;; *) false ;; esac || { echo "usage: $0 --calendar [YYYY]" >&2; exit 2; }
+    case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) [ $# -le 2 ] ;; *) false ;; esac || { usage >&2; exit 2; }
     bstamp '%Y %m %e %u %B' stamp
     # shellcheck disable=SC2154  # stamp is set by bstamp's printf -v
     read -r cy cm cdom cdow cmonth <<< "$stamp"
@@ -390,15 +409,19 @@ if [ "${1:-}" = "--calendar" ]; then
     exit 0
 fi
 
-IFS= read -r -d '' input   # all of stdin (the read stops at EOF)
-# Every field in one jq call, NUL-separated so names pass through byte for
-# byte. Garbage or non-object stdin makes jq fail: every field stays empty
-# and the line renders without them, quietly.
-mapfile -d '' -t f < <(printf '%s' "$input" | jq -j '[
-    (.model.display_name // ""), (.effort.level // ""),
-    ((.context_window.used_percentage // null) | if type == "number" then . else "" end),
-    (.cost.total_cost_usd // ""), (.workspace.current_dir // .cwd // ""),
-    (.cost.total_lines_added // 0), (.cost.total_lines_removed // 0)] | map(tostring) | join("\u0000")' 2>/dev/null)
+# Claude Code's JSON, only when rendering (--doctor takes nothing from stdin).
+input=""; f=()
+if [ -z "${1:-}" ]; then
+    IFS= read -r -d '' input   # all of stdin (the read stops at EOF)
+    # Every field in one jq call, NUL-separated so names pass through byte for
+    # byte. Garbage or non-object stdin makes jq fail: every field stays empty
+    # and the line renders without them, quietly.
+    mapfile -d '' -t f < <(printf '%s' "$input" | jq -j '[
+        (.model.display_name // ""), (.effort.level // ""),
+        ((.context_window.used_percentage // null) | if type == "number" then . else "" end),
+        (.cost.total_cost_usd // ""), (.workspace.current_dir // .cwd // ""),
+        (.cost.total_lines_added // 0), (.cost.total_lines_removed // 0)] | map(tostring) | join("\u0000")' 2>/dev/null)
+fi
 model="${f[0]:-}"; effort="${f[1]:-}"; used_pct="${f[2]:-}"; session_cost="${f[3]:-}"
 cur_dir="${f[4]:-}"; lines_added="${f[5]:-0}"; lines_removed="${f[6]:-0}"
 
@@ -565,37 +588,60 @@ bstamp '%Y-%m-%d %e %u %Y-%m' stamp; read -r today dom dow ym <<< "$stamp"
 # next renders don't retry until the refresh interval has passed (5 minutes
 # after an HTTP 429).
 hold() { printf '%s\n' "$(( now + ${1:-$REFRESH_INTERVAL} ))" > "$HOLD_FILE" 2>/dev/null; }
-refresh_usage() {
-    local creds="$CLAUDE_DIR/.credentials.json"
-    [ -r "$creds" ] || { hold; return; }
-    local tok exp
+# read_token: the CLI's OAuth token into TOK (empty on failure, with the
+# reason in TOK_ERR) and its expiry (epoch ms) into TOK_EXP. Linux and
+# Windows keep it in the credentials file. macOS keeps it in the Keychain,
+# writing the file only when the Keychain is locked, so with no file there
+# the Keychain is asked for the same JSON (the item Claude Code creates,
+# "Claude Code-credentials"); the first read may prompt for access once.
+read_token() {
+    TOK=""; TOK_EXP=""; TOK_ERR=""; TOK_SRC="$CLAUDE_DIR/.credentials.json"
+    local json=""
+    if [ -r "$TOK_SRC" ]; then
+        json=$(<"$TOK_SRC")
+    elif [ -e "$TOK_SRC" ]; then TOK_ERR="$TOK_SRC is not readable"; return 1
+    else
+        case "$OSTYPE" in
+            darwin*) if command -v security >/dev/null 2>&1; then
+                         TOK_SRC="the macOS Keychain (Claude Code-credentials)"
+                         json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null) \
+                             || { TOK_ERR="no credentials file and no Keychain item: log in with claude"; return 1; }
+                     else TOK_ERR="no credentials file at $TOK_SRC"; return 1; fi ;;
+            *) TOK_ERR="no credentials file at $TOK_SRC: log in with claude (an API key gives no token)"; return 1 ;;
+        esac
+    fi
     # Token and expiry in one jq call (the token never contains whitespace).
-    read -r tok exp <<< "$(jq -r '[(.claudeAiOauth.accessToken // ""),
-        ((.claudeAiOauth.expiresAt? // null) | if type == "number" then floor else "" end)] | join(" ")' "$creds" 2>/dev/null)"
-    [ -n "$tok" ] || { hold; return; }
+    read -r TOK TOK_EXP <<< "$(printf '%s' "$json" | jq -r '[(.claudeAiOauth.accessToken // ""),
+        ((.claudeAiOauth.expiresAt? // null) | if type == "number" then floor else "" end)] | join(" ")' 2>/dev/null)"
+    [ -n "$TOK" ] || { TOK_ERR="no OAuth token in $TOK_SRC: log in with claude (an API key gives no token)"; return 1; }
     # Expired token (expiresAt is epoch milliseconds): the CLI refreshes the
-    # credentials file on its own; serve the stale cache until it does. A
+    # credentials on its own; serve the stale cache until it does. A
     # missing or unreadable expiry is treated as "try".
-    if [ -n "$exp" ] && ! [ "$exp" -gt "$(( now * 1000 ))" ] 2>/dev/null; then hold; return; fi
-    local resp code
+    if [ -n "$TOK_EXP" ] && ! [ "$TOK_EXP" -gt "$(( now * 1000 ))" ] 2>/dev/null; then
+        TOK_ERR="the OAuth token expired; the CLI refreshes it on its next request"; return 1
+    fi
+}
+# fetch_usage: GET the usage endpoint with TOK. The body lands in RESP and
+# the HTTP status in CODE; returns 1 when curl itself failed (CODE empty).
+fetch_usage() {
+    RESP=""; CODE=""
     # The token travels in a curl config piped from the printf builtin: never
     # in argv (ps), never in a temp file (a heredoc would be one on bash < 5.1).
     # The HTTP status rides as the last line of the output.
-    resp=$(printf '%s\n' 'url = "https://api.anthropic.com/api/oauth/usage"' \
-                          "header = \"Authorization: Bearer $tok\"" \
+    RESP=$(printf '%s\n' 'url = "https://api.anthropic.com/api/oauth/usage"' \
+                          "header = \"Authorization: Bearer $TOK\"" \
                           'header = "anthropic-beta: oauth-2025-04-20"' \
-           | curl -s -m 5 -w '\n%{http_code}' -K -) || { hold; return; }
-    code="${resp##*$'\n'}"; resp="${resp%$'\n'*}"
-    if [ "$code" = 429 ]; then hold 300; return; fi
-    [ -n "$resp" ] || { hold; return; }
-    local month limit
-    # Amounts come in minor units with their exponent (12000 with exponent 2
-    # = 120.00); the exponent defaults to 2 when absent. The limit is
-    # .spend.limit, else .spend.cap.credits.
-    # .spend.enabled false = the org has spend billing off and the amounts
-    # mean nothing: drop any cache so the bars hide, like any other no-figure case.
-    local enabled
-    read -r enabled month limit <<< "$(printf '%s' "$resp" | jq -r '
+           | curl -s -m 5 -w '\n%{http_code}' -K -) || { RESP=""; return 1; }
+    CODE="${RESP##*$'\n'}"; RESP="${RESP%$'\n'*}"
+}
+# parse_usage BODY: U_ENABLED (on/off/empty for no figure), U_MONTH and
+# U_LIMIT in dollars. Amounts come in minor units with their exponent
+# (12000 with exponent 2 = 120.00); the exponent defaults to 2 when absent.
+# The limit is .spend.limit, else .spend.cap.credits. .spend.enabled false
+# = the org has spend billing off and the amounts mean nothing.
+parse_usage() {
+    U_ENABLED=""; U_MONTH=""; U_LIMIT=""
+    read -r U_ENABLED U_MONTH U_LIMIT <<< "$(printf '%s' "$1" | jq -r '
         def dollars: .amount_minor / pow(10; (.exponent // 2));
         if .spend.enabled? == false then "off"
         elif (.spend.used.amount_minor? // null) != null then
@@ -605,8 +651,21 @@ refresh_usage() {
                else 0 end) as $l
             | "on \($m) \($l)"
         else empty end' 2>/dev/null)"
-    [ "$enabled" = off ] && rm -f "$CACHE_FILE" 2>/dev/null
-    [ -n "$month" ] || { hold; return; }
+}
+refresh_usage() {
+    read_token || { hold; return; }
+    fetch_usage || { hold; return; }
+    if [ "$CODE" = 429 ]; then hold 300; return; fi
+    [ -n "$RESP" ] || { hold; return; }
+    parse_usage "$RESP"
+    # Spend billing off: drop any cache so the bars hide, like any other no-figure case.
+    [ "$U_ENABLED" = off ] && rm -f "$CACHE_FILE" 2>/dev/null
+    [ -n "$U_MONTH" ] || { hold; return; }
+    store_usage "$U_MONTH" "$U_LIMIT"
+}
+# store_usage MONTH LIMIT: the day-start baseline and the cache line; clears the hold.
+store_usage() {
+    local month="$1" limit="$2"
     # Your own target wins over the org's; neither -> 0 -> bars hidden.
     is_pos "$MONTHLY_LIMIT" && limit="$MONTHLY_LIMIT"
     is_pos "$limit" || limit=0
@@ -626,6 +685,57 @@ refresh_usage() {
     printf '%s %s %s %s %s %s %s\n' "$today" "$now" "$day" "$month" "$limit" "$wd_mask" "$hol" > "$CACHE_FILE.tmp" 2>/dev/null \
         && mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null && { [ -e "$HOLD_FILE" ] && rm -f "$HOLD_FILE" 2>/dev/null; true; }
 }
+
+# --doctor: the same steps as a refresh, one at a time, each explained, and
+# the verdict the next render would reach. Exit 1 when the bars stay hidden.
+if [ "${1:-}" = "--doctor" ]; then
+    [ $# -le 1 ] || { usage >&2; exit 2; }
+    doc() { printf '%-14s%s\n' "$1" "$2"; }
+    fail() { doc "$1" "$2"; doc "bars:" "hidden"; exit 1; }
+    doc "version:" "budget-statusline $VERSION"
+    doc "config dir:" "$CLAUDE_DIR"
+    bstamp '%Y %B' stamp; read -r cy cmonth <<< "$stamp"
+    doc "budget clock:" "${BUDGET_TZ:-local time}, today $today"
+    cal_load "$CALENDAR"; read_calendar_settings ""
+    if [ -z "$CALENDAR" ]; then doc "calendar:" "off (CLAUDE_BUDGET_CALENDAR=$CLAUDE_BUDGET_CALENDAR): workdays mon-fri, no holidays"
+    elif [ ! -r "$CALENDAR" ]; then doc "calendar:" "no file at $CALENDAR: workdays mon-fri, no holidays"
+    else
+        warnings=$(CALENDAR_VERBOSE=1 holidays_for_years "$cy" 2>&1 >/dev/null | grep -c .)
+        days=""; for d in 1 2 3 4 5 6 7; do is_workday "$wd_mask" "$d" && { dow_abbr "$d"; days="$days${days:+ }${DA,,}"; }; done
+        n=$(holidays_for_years "$cy" | grep -c .)
+        note=""; [ "$warnings" -gt 0 ] && note=", $warnings line(s) not parsed (see --calendar)"
+        doc "calendar:" "$CALENDAR: workdays $days, $n holidays in $cy$note"
+    fi
+    days_in_month "$cy" "${today:5:2}"; hol=$(holidays_in_month "$cy" "${today:5:2}")
+    count_workdays "$wd_mask" "$hol" "$dom" "$dow" "$DIM"
+    doc "this month:" "$cmonth $cy, $WD workday(s) left including today"
+    read_token || fail "credentials:" "$TOK_ERR"
+    left=$(( TOK_EXP / 1000 - now ))
+    doc "credentials:" "$TOK_SRC: OAuth token present${TOK_EXP:+, expires in $(( left / 3600 ))h $(( left % 3600 / 60 ))m}"
+    fetch_usage || fail "usage fetch:" "curl failed (no network, or the endpoint timed out after 5 s)"
+    case "$CODE" in
+        200) ;;
+        401|403) fail "usage fetch:" "HTTP $CODE: the token was rejected; run claude and log in again" ;;
+        429) fail "usage fetch:" "HTTP 429: rate limited; the statusline waits 5 minutes after one of these" ;;
+        *) fail "usage fetch:" "HTTP $CODE${RESP:+: ${RESP:0:200}}" ;;
+    esac
+    parse_usage "$RESP"
+    case "$U_ENABLED" in
+        off) fail "usage fetch:" "HTTP 200, but spend.enabled is false: the organization has spend billing off, so there is no dollar figure" ;;
+        on) doc "usage fetch:" "HTTP 200: month to date \$$U_MONTH, limit \$$U_LIMIT" ;;
+        *) fail "usage fetch:" "HTTP 200, but no spend figure in the response (the plan reports no dollars, or the endpoint changed): ${RESP:0:200}" ;;
+    esac
+    if is_pos "$MONTHLY_LIMIT"; then doc "limit:" "\$$MONTHLY_LIMIT from CLAUDE_BUDGET_MONTHLY_LIMIT"
+    elif is_pos "$U_LIMIT"; then doc "limit:" "\$$U_LIMIT from the response"
+    else fail "limit:" "none: the response carries no limit and CLAUDE_BUDGET_MONTHLY_LIMIT is unset; set one to see the bars"
+    fi
+    store_usage "$U_MONTH" "$U_LIMIT"
+    read -r c_date c_stamp c_day c_mo c_lim c_mask c_hol < "$CACHE_FILE" 2>/dev/null \
+        || fail "cache:" "could not write $CACHE_FILE"
+    doc "cache:" "$CACHE_FILE: today \$$c_day, month \$$c_mo, limit \$$c_lim, refreshed just now"
+    doc "bars:" "will show"
+    exit 0
+fi
 
 # Read the cache. Its age comes from the stamp inside the line, not the file's
 # mtime, so nothing here depends on stat(1).
