@@ -29,10 +29,12 @@
 # Wire-up (~/.claude/settings.json):
 #   "statusLine": { "type": "command", "command": "bash /path/to/budget-statusline.sh" }
 
-# printf '%.0f' must parse "42.5" regardless of the user's locale. LC_ALL
-# would override LC_NUMERIC, so fold it into the category-level settings.
-if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL" LC_TIME="$LC_ALL"; unset LC_ALL; fi
-export LC_NUMERIC=C
+# printf '%.0f' must parse "42.5" regardless of the user's locale, and the
+# --calendar listing prints English day and month names whatever the locale
+# (its own notes and headers are English). LC_ALL would override both, so
+# keep only its character set and pin the numeric and time categories.
+if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
+export LC_NUMERIC=C LC_TIME=C
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
 # The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
 BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
