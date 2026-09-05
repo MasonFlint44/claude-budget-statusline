@@ -141,3 +141,10 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000},"limit":{"amount_minor":40000}}}' refresh "$NOW"
     run cache_contents; assert_has " 120 400 "
 }
+# A response recorded from a Team organization with spend billing on
+# 2026-09-05 (tests/fixtures/usage-response.json): $113.88 used of $400.
+@test "the recorded real response: month 113.88, limit 400, rendered as 28%" {
+    FAKE_CURL_BODY="$(cat "$TESTS_DIR/fixtures/usage-response.json")" refresh "$NOW"
+    run cache_contents; assert_has " 113.88 400 "
+    render "$NOW"; assert_has "month:" " 28% " '$114/$400'
+}

@@ -24,7 +24,8 @@ billing, where the `/usage` page shows dollars; see Prerequisites.
 > The token is read from the CLI's credentials file, sent only to that host, and
 > never written to disk or logged; the cache holds dollar totals only. The
 > endpoint is not publicly documented and may change without notice; if it
-> does, the budget bars go blank and the rest of the line keeps working. This
+> does, the budget bars go blank and the rest of the line keeps working
+> (`LIVE=1 bats tests/live.bats` tells you whether it has). This
 > project is not affiliated with or supported by Anthropic.
 
 ## Install
@@ -158,9 +159,10 @@ Set knobs in the environment Claude Code starts from, or inline in the
 ## Tests
 
 ```
-bats tests/                       # the whole suite (~30 s)
+bats tests/                       # the whole suite (~30 s), no network
 bats tests/calendar.bats          # one area
 UPDATE=1 bats tests/calendar.bats # rewrite the golden listings
+LIVE=1 bats tests/live.bats       # probe the real endpoint with your credentials
 ```
 
 [Bats](https://github.com/bats-core/bats-core) (`apt install bats`) plus
@@ -180,6 +182,7 @@ and nothing is installed system-wide. One file per area:
 | `repoline.bats` | the location row against a scratch git repository with a remote |
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |
+| `live.bats` | the drift probe: the real endpoint with your own credentials, only with `LIVE=1`, never in CI. Fails when the response no longer has the shape recorded in `tests/fixtures/usage-response.json` |
 
 CI runs the suite on every push.
 
