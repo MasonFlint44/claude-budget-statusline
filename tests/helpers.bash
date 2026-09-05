@@ -127,10 +127,12 @@ refresh() { local t="$1"; shift; render "$t" "$@"; wait_refresh; }
 cache_contents() { cat "$(cache_path)" 2>/dev/null; }
 curl_calls() { grep -c -- '^--- argv:' "$FAKE_CURL_LOG" 2>/dev/null || echo 0; }
 
-# assert_near ACTUAL EXPECTED [TOLERANCE]: integers within TOLERANCE (default 2)
-# seconds. Fake time runs at real speed, so a stamp the script takes can trail
-# one the test took by a second or two.
+# assert_near ACTUAL EXPECTED [TOLERANCE]: integers within EXPECTED-1 ..
+# EXPECTED+TOLERANCE (default 2). Fake time runs at real speed, so a stamp the
+# script takes can trail one the test took by a second or two; and because
+# each at() computes its offset in whole seconds, it can also land one second
+# earlier.
 assert_near() {
     local a="$1" e="$2" t="${3:-2}"
-    [ "$a" -ge "$e" ] 2>/dev/null && [ "$a" -le $(( e + t )) ] || { echo "got $a, expected $e (+$t)"; return 1; }
+    [ "$a" -ge $(( e - 1 )) ] 2>/dev/null && [ "$a" -le $(( e + t )) ] || { echo "got $a, expected $e (-1/+$t)"; return 1; }
 }
