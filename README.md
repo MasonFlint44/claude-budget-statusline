@@ -58,7 +58,8 @@ the background fetch has run.
 The calendar is one entry per line:
 
 - `workdays DAYS` — the days you work: a wrapping range (`mon-fri`, `sun-thu`),
-  a list (`mon,tue,wed,thu`), a mix (`mon-wed,fri`) or `all`. Default `mon-fri`.
+  a list (`mon,tue,wed,thu`), a mix (`mon-wed,fri`) or `all`. Default `mon-fri`;
+  if the line appears more than once the last one wins, as with `observe`.
 - `fixed MM-DD`, `nth N DOW MM`, `last DOW MM` — yearly holidays, each
   followed by a name (`nth 4 thu 11 Thanksgiving Day`).
 - `once YYYY-MM-DD[..YYYY-MM-DD] name` — a one-off date or inclusive range,
@@ -68,9 +69,12 @@ The calendar is one entry per line:
   you don't work is observed. `nearest` moves it to the nearest workday, ties
   going forward; `next` and `prev` always go that way; `none` gives no
   substitute day. A `DOW=MODE` token overrides the mode for one day. The
-  substitute skips days that are already holidays, so Christmas and Boxing Day
-  chain onto Monday and Tuesday. Because the modes follow the `workdays`
-  line, changing your week doesn't mean rewriting this line. Common settings:
+  substitute skips days that are already yearly holidays, so Christmas and
+  Boxing Day chain onto Monday and Tuesday, but not `once` days: a holiday
+  observed on a day you had already taken off is still observed there. If no
+  free workday exists within two weeks there is no substitute. Because the
+  modes follow the `workdays` line, changing your week doesn't mean rewriting
+  this line. Common settings:
 
 | | |
 |---|---|
@@ -85,8 +89,8 @@ To check the calendar:
 bash statusline/budget-statusline.sh --calendar 2027
 ```
 
-It prints the work week, the observe policy, every holiday with its observed
-date (tagged when it was shifted or has no effect), and for the current year
+It prints the file in use, the work week, the observe policy, every holiday
+with its observed date (tagged when it was shifted or has no effect), and for the current year
 this month's total and remaining workday counts. Lines that don't parse are
 reported. The listing is by the holiday's own year, so a New Year's Day
 observed on the previous December 30 or 31 appears under the new year, the

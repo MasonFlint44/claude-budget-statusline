@@ -55,8 +55,8 @@ case "$CALENDAR" in off|none|0|false) CALENDAR="" ;; esac   # no file: workdays 
 #                           mon-fri week); next / prev = always that way;
 #                           none = no substitute day. DOW=MODE overrides the
 #                           mode for one day (Japan: "observe next sat=none").
-#                           The substitute skips days that are already
-#                           holidays, so Christmas and Boxing Day chain.
+#                           The substitute skips days that are already yearly
+#                           holidays (so Christmas and Boxing Day chain), not once days.
 #                           Applies file-wide wherever the line sits.
 #   fixed MM-DD      name   a yearly holiday on a fixed date
 #   nth   N DOW MM   name   Nth weekday of a month (DOW = mon..sun, N = 1..5;
@@ -89,7 +89,7 @@ is_workday() { [ "${1:$(($2 - 1)):1}" = 1 ]; }   # $1 = mask, $2 = day-of-week 1
 # < prev, x none, - inherit obs_mode). Defaults first, then the file's lines,
 # last one wins. Bad tokens are reported on stderr when $2 is non-empty.
 read_calendar_settings() {  # $1 = conf, $2 = report bad lines
-    local conf="$1" warn="$2" line kind rest tok lineno mask a b i d mode
+    local conf="$1" warn="$2" line kind rest tok toks lineno mask a b i d mode
     wd_mask=1111100; obs_mode=nearest; obs_day=-------
     [ -n "$conf" ] && [ -r "$conf" ] || return 0
     lineno=0
@@ -100,7 +100,8 @@ read_calendar_settings() {  # $1 = conf, $2 = report bad lines
         case "$kind" in
             workdays)
                 mask=0000000
-                for tok in ${rest//,/ }; do
+                IFS=', ' read -ra toks <<< "$rest"
+                for tok in "${toks[@]}"; do
                     case "$tok" in
                         [Aa][Ll][Ll]) mask=1111111 ;;
                         *-*) a=$(dow_num "${tok%%-*}"); b=$(dow_num "${tok#*-}")
@@ -116,7 +117,9 @@ read_calendar_settings() {  # $1 = conf, $2 = report bad lines
                 if [ "$mask" = 0000000 ]; then [ -n "$warn" ] && echo "calendar: line $lineno: no workdays named, line ignored" >&2
                 else wd_mask=$mask; fi ;;
             observe)
-                for tok in $rest; do
+                read -ra toks <<< "$rest"
+                for tok in "${toks[@]}"; do
+                    tok="${tok,,}"
                     case "$tok" in
                         nearest|next|prev|none) obs_mode=$tok ;;
                         *=nearest|*=next|*=prev|*=none)
@@ -148,7 +151,7 @@ read_calendar_settings() {  # $1 = conf, $2 = report bad lines
 # forward past Jan 1 lands on Jan 2). Callers pass the neighbouring years.
 holidays_for_years() {
     local conf="$1" y line kind f1 f2 f3 rest name d dow n mm dim first ld ldow day lineno skipwhy
-    local used=$'\n' deferred="" i warn warnyear s e se ee mode step orig odow fwd back k
+    local used=$'\n' taken=$'\n' deferred="" i warn warnyear s e se ee mode step orig odow fwd back k
     shift
     [ -n "$conf" ] && [ -r "$conf" ] || return 0
     warnyear="${2:-$1}"   # report bad lines for the year of interest (the middle one), once
@@ -188,27 +191,28 @@ holidays_for_years() {
                         d=$(printf '%s-%02d-%02d' "$y" "$((10#$mm))" "$day")
                     fi ;;
                 once)
-                    name="$f2 $f3 $rest"
+                    name="$f2 $f3 $rest"; name="${name//$'\t'/ }"
                     name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
                     s="${f1%%..*}"; e="${f1#*..}"
                     se=""; ee=""
-                    case "$s" in [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) se=$(date -d "$s" +%s 2>/dev/null) ;; esac
-                    case "$e" in [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) ee=$(date -d "$e" +%s 2>/dev/null) ;; esac
+                    # Epochs in UTC so the day walk is a flat 86400 s (no DST).
+                    case "$s" in [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) se=$(date -u -d "$s" +%s 2>/dev/null) ;; esac
+                    case "$e" in [0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]) ee=$(date -u -d "$e" +%s 2>/dev/null) ;; esac
                     if [ -z "$se" ] || [ -z "$ee" ]; then skipwhy="cannot parse"
                     elif [ "$ee" -lt "$se" ]; then skipwhy="range ends before it starts"
                     elif [ $(( (ee - se) / 86400 )) -gt 366 ]; then skipwhy="range longer than a year"
                     elif [ "$y" -lt "$((10#${s%%-*}))" ] || [ "$y" -gt "$((10#${e%%-*}))" ]; then
                         continue   # another year entirely: fine, not ours
                     else
-                        while [ "$se" -le "$ee" ]; do
-                            read -r d dow < <(date -d "@$se" +'%F %u')
-                            se=$((se + 86400))
-                            [ "${d%%-*}" = "$y" ] || continue
+                        # Clamp to this year, then one date call for the whole range.
+                        k=$(date -u -d "$y-01-01" +%s); [ "$se" -lt "$k" ] && se=$k
+                        k=$(date -u -d "$y-12-31" +%s); [ "$ee" -gt "$k" ] && ee=$k
+                        while read -r d dow; do
                             case "$used" in *$'\n'"$d"$'\n'*) continue ;; esac
                             used="$used$d"$'\n'
                             if is_workday "$wd_mask" "$dow"; then printf '%s\t%s\t%s\t\n' "$d" "$y" "${name:-holiday}"
                             else printf '%s\t%s\t%s\t%s\n' "$d" "$y" "${name:-holiday}" "not a workday, no effect"; fi
-                        done
+                        done < <(seq "$se" 86400 "$ee" | sed 's/^/@/' | date -u -f - +'%F %u')
                         continue
                     fi ;;
             esac
@@ -216,6 +220,7 @@ holidays_for_years() {
                 [ -n "$warn" ] && echo "calendar: skipping line $lineno (${skipwhy:-cannot parse}): $line" >&2
                 continue
             fi
+            name="${name//$'\t'/ }"
             name="${name#"${name%%[![:space:]]*}"}"; name="${name%"${name##*[![:space:]]}"}"
             if ! is_workday "$wd_mask" "$dow"; then
                 # Non-workday: decided in pass 2, once every year's workday
@@ -224,12 +229,15 @@ holidays_for_years() {
                 continue
             fi
             case "$used" in *$'\n'"$d"$'\n'*) continue ;; esac   # same date listed twice
-            used="$used$d"$'\n'
+            used="$used$d"$'\n'; taken="$taken$d"$'\n'
             printf '%s\t%s\t%s\t\n' "$d" "$y" "${name:-holiday}"
         done < "$conf"
     done
     # Pass 2: observe the yearly rules that fell on non-workdays, earliest
-    # first, per the observe policy for that day.
+    # first, per the observe policy for that day. The substitute skips other
+    # yearly holidays (so Christmas and Boxing Day chain) but not once
+    # dates: a holiday observed on a day you already took off is still
+    # observed there. No free workday within two weeks = no substitute.
     [ -n "$deferred" ] || return 0
     while IFS=$'\t' read -r d dow y name; do
         [ -n "$d" ] || continue
@@ -243,13 +251,13 @@ holidays_for_years() {
             mode=next; [ "$back" -lt "$fwd" ] && mode=prev
         fi
         step="+1 day"; [ "$mode" = prev ] && step="-1 day"
-        orig="$d"; odow="$dow"
+        orig="$d"; odow="$dow"; k=""
         for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
-            d=$(date -d "$d $step" +%F)
-            dow=$(date -d "$d" +%u)
-            is_workday "$wd_mask" "$dow" && case "$used" in *$'\n'"$d"$'\n'*) ;; *) break ;; esac
+            read -r d dow < <(date -d "$d $step" +'%F %u')
+            is_workday "$wd_mask" "$dow" && case "$taken" in *$'\n'"$d"$'\n'*) ;; *) k=$d; break ;; esac
         done
-        used="$used$d"$'\n'
+        if [ -z "$k" ]; then printf '%s\t%s\t%s\t%s\n' "$orig" "$y" "$name" "not a workday, no free workday to observe it on"; continue; fi
+        taken="$taken$d"$'\n'
         printf '%s\t%s\t%s\t%s\n' "$d" "$y" "$name" "observed from $(dow_abbr "$odow") ${orig#*-}"
     done < <(printf '%s' "$deferred" | sort -u -t $'\t' -k1,1)
 }
@@ -272,11 +280,13 @@ count_workdays() {
         print n }'
 }
 
+case "${1:-}" in --calendar|'') ;; *) echo "usage: $0 [--calendar [YYYY]]  (no flag: render the statusline from stdin)" >&2; exit 2 ;; esac
 if [ "${1:-}" = "--calendar" ]; then
     case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) ;; *) echo "usage: $0 --calendar [YYYY]" >&2; exit 2 ;; esac
     y=$((10#${2:-$(bdate +%Y)}))
     if [ -z "$CALENDAR" ]; then echo "calendar: disabled (CLAUDE_BUDGET_CALENDAR=$CLAUDE_BUDGET_CALENDAR): workdays mon-fri, no holidays"
     elif [ ! -r "$CALENDAR" ]; then echo "calendar: no file at $CALENDAR: workdays mon-fri, no holidays"
+    else echo "calendar: $CALENDAR"
     fi
     read_calendar_settings "$CALENDAR" ""
     days=""; for d in 1 2 3 4 5 6 7; do is_workday "$wd_mask" "$d" && days="$days $(dow_abbr "$d")"; done

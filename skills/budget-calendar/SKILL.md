@@ -9,7 +9,7 @@ The statusline spreads the month's remaining budget over the remaining workdays,
 
 ## Where the file is
 
-The installed copy is `$CFG/statusline/config/calendar.conf` with `CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`, next to the installed script `$CFG/statusline/budget-statusline.sh`. **Edit only that copy.** The plugin's own `statusline/config/calendar.conf` is the shipped default, is replaced on every plugin update, and is never read by the installed statusline — editing it changes nothing. If `CLAUDE_BUDGET_CALENDAR` is set in the environment or inline in the `statusLine` command in `$CFG/settings.json`, the file it names is the one in use instead. If the installed file does not exist, say so and point the user at `/install-statusline`.
+Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the installed script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_CALENDAR=...` or `CLAUDE_BUDGET_TZ=...` before it. Run the listing with exactly those knobs and that script path, and it prints `calendar: <path>` on its first line: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/calendar.conf`. Do not edit the plugin's own `statusline/config/calendar.conf`: it is the shipped default and is replaced on every plugin update. If the listing reports no file or the script is not installed, say so and point the user at `/install-statusline`.
 
 ## The grammar
 
@@ -18,7 +18,7 @@ One entry per line, `#` starts a comment, names run to the end of the line:
 | Line | Meaning |
 |------|---------|
 | `workdays DAYS` | the days the user works: a wrapping range (`mon-fri`, `sun-thu`), a list (`mon,tue,wed,thu`), a mix (`mon-wed,fri`) or `all`. Default `mon-fri`. Last line wins |
-| `observe MODE [DOW=MODE ...]` | how a yearly holiday on a non-workday is observed: `nearest` (nearest workday, ties forward; the default), `next`, `prev`, `none`. `DOW=MODE` overrides one day. Substitutes skip days already holidays |
+| `observe MODE [DOW=MODE ...]` | how a yearly holiday on a non-workday is observed: `nearest` (nearest workday, ties forward; the default), `next`, `prev`, `none`. `DOW=MODE` overrides one day. Substitutes skip days already yearly holidays, not `once` days |
 | `fixed MM-DD name` | yearly holiday on a fixed date |
 | `nth N DOW MM name` | Nth weekday of a month (`nth 4 thu 11 Thanksgiving Day`) |
 | `last DOW MM name` | last weekday of a month |
@@ -28,11 +28,11 @@ Yearly rules follow the observe policy. `once` lines are literal, so a PTO range
 
 ## Steps
 
-1. **Show the current state.** Run the listing and show the user its output:
+1. **Show the current state.** Run the listing, with any inline knobs from the `statusLine` command in front, and show the user its output:
    ```bash
-   bash "$CFG/statusline/budget-statusline.sh" --calendar
+   [KNOBS] bash "$CFG/statusline/budget-statusline.sh" --calendar
    ```
-   It prints the work week, the observe policy, this year's holidays with their observed dates, warnings for lines that don't parse, and this month's total and remaining workday counts. Pass a year (`--calendar 2027`) to check another year. For a pure "show me" request, stop here.
+   It prints the calendar path, the work week, the observe policy, this year's holidays with their observed dates, warnings for lines that don't parse, and this month's total and remaining workday counts. Pass a year (`--calendar 2027`) to check another year. For a pure "show me" request, stop here.
 
 2. **Translate the request into exact lines.** Resolve relative dates against today's date on the budget clock (`CLAUDE_BUDGET_TZ` if set, else local). Typical translations:
    - "I'm off the 14th through the 18th" → `once 2026-09-14..2026-09-18 PTO`
@@ -49,11 +49,11 @@ Yearly rules follow the observe policy. `once` lines are literal, so a PTO range
 
 4. **Verify.** Rerun the listing from step 1 and show the output. Every warning must be either resolved or explained; a new entry must appear on the expected date with the expected tag. If something is wrong, fix the line and rerun.
 
-5. **Report** what changed in one or two sentences. The statusline picks the file up on its next background refresh (within about a minute), no restart needed.
+5. **Report** what changed in one or two sentences. The bar reads the calendar on its next successful usage refresh (every `CLAUDE_BUDGET_REFRESH` seconds, default 60, and only when the fetch succeeds), no restart needed.
 
 ## Do not
 
-- Do not edit the plugin's copy of `calendar.conf` or the script itself.
+- Do not edit the plugin's copy of `calendar.conf` or the script itself. Edit the path the listing prints.
 - Do not write without showing the exact lines first.
 - Do not invent holidays the user did not ask for, and do not rewrite lines that are not part of the request.
 - Do not skip the verification listing.
