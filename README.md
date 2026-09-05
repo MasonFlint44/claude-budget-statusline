@@ -110,7 +110,7 @@ next week", "we work Sunday to Thursday", "show my budget calendar".
   do. With an API key there is no token; with a plan whose `/usage` page
   shows no dollar amount there is no figure. In both cases the bars stay
   hidden and the rest of the line still renders.
-- `bash` 4+, `jq`, `curl`, `awk`, GNU coreutils (`date -d`, `readlink -f`,
+- `bash` 4.4+, `jq`, `curl`, `awk`, GNU coreutils (`date -d`, `readlink -f`,
   `sort`, `seq`, `sed`, `tr`, and friends) and findutils (`xargs`, `find`).
 - `git` — only for the branch and diff segment; blank without it.
 - `tput` — optional, for the terminal width when `COLUMNS` is unset.

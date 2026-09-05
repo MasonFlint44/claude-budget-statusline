@@ -35,10 +35,20 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
+SCRIPT_DIR=$(readlink -f "${BASH_SOURCE[0]:-$0}"); SCRIPT_DIR="${SCRIPT_DIR%/*}"
 # The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
 BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
 bdate() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" date "$@"; else date "$@"; fi; }
+# bstamp FMT VAR: the current time on the budget clock, formatted by the
+# printf builtin (no process), into VAR.
+bstamp() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" printf -v "$2" "%($1)T" -1; else printf -v "$2" "%($1)T" -1; fi; }
+days_in_month() {  # YYYY MM -> DIM
+    local y=$((10#$1)) m=$((10#$2))
+    case $m in
+        2) if (( (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 )); then DIM=29; else DIM=28; fi ;;
+        4|6|9|11) DIM=30 ;; *) DIM=31 ;;
+    esac
+}
 # The calendar: CLAUDE_BUDGET_CALENDAR if set (a path, or off), else config/calendar.conf.
 CALENDAR="${CLAUDE_BUDGET_CALENDAR:-$SCRIPT_DIR/config/calendar.conf}"
 case "${CALENDAR,,}" in off|none|no|0|false) CALENDAR="" ;; esac   # no file: workdays mon-fri, no holidays
@@ -84,6 +94,8 @@ dow_abbr() {  # 1..7 -> Mon..Sun
 }
 str_set() { printf '%s%s%s' "${1:0:$(($2 - 1))}" "$3" "${1:$2}"; }   # $1 with char $2 (1-based) replaced by $3
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
+is_pos() { is_num "$1" && case "$1" in *[1-9]*) return 0 ;; esac; return 1; }   # a decimal > 0
+is_num() { case "$1" in ''|*[!0-9.]*|*.*.*|.) return 1 ;; *) return 0 ;; esac; }
 is_mask() { case "$1" in [01][01][01][01][01][01][01]) return 0 ;; *) return 1 ;; esac; }
 is_workday() { [ "${1:$(($2 - 1)):1}" = 1 ]; }   # $1 = mask, $2 = day-of-week 1..7
 
@@ -315,8 +327,17 @@ if [ "${1:-}" = "--calendar" ]; then
     exit 0
 fi
 
-input=$(cat)
-printf '%s' "$input" | jq -e . >/dev/null 2>&1 || input='{}'   # garbage stdin: render an empty line, quietly
+IFS= read -r -d '' input   # all of stdin (the read stops at EOF)
+# Every field in one jq call, NUL-separated so names pass through byte for
+# byte. Garbage or non-object stdin makes jq fail: every field stays empty
+# and the line renders without them, quietly.
+mapfile -d '' -t f < <(printf '%s' "$input" | jq -j '[
+    (.model.display_name // ""), (.effort.level // ""),
+    ((.context_window.used_percentage // null) | if type == "number" then . else "" end),
+    (.cost.total_cost_usd // ""), (.workspace.current_dir // .cwd // ""),
+    (.cost.total_lines_added // 0), (.cost.total_lines_removed // 0)] | map(tostring) | join("\u0000")' 2>/dev/null)
+model="${f[0]:-}"; effort="${f[1]:-}"; used_pct="${f[2]:-}"; session_cost="${f[3]:-}"
+cur_dir="${f[4]:-}"; lines_added="${f[5]:-0}"; lines_removed="${f[6]:-0}"
 
 # ANSI color codes
 CLR_DIM=$'\033[2m'
@@ -339,7 +360,7 @@ RAMP_AT=(  5  50  95)
 # Map a 0-100 percentage to a continuously interpolated ramp color. Single source
 # of truth for the bars, so they all read on the same scale.
 # Pure bash integer math (no subshell) since this runs on every render.
-ramp_color() {
+ramp_color() {   # PCT [VAR]: print the escape, or store it in VAR
     local p="${1:-0}"
     p="${p%%.*}"; [ -z "$p" ] && p=0
     (( p < 0 )) && p=0
@@ -363,7 +384,8 @@ ramp_color() {
     fi
     # A real ESC byte, like the CLR_* constants: the final render prints the
     # line with printf '%s', so text from the input can't smuggle escapes in.
-    printf $'\033[38;2;%d;%d;%dm' "$r" "$g" "$b"
+    if [ -n "${2:-}" ]; then printf -v "$2" $'\033[38;2;%d;%d;%dm' "$r" "$g" "$b"
+    else printf $'\033[38;2;%d;%d;%dm' "$r" "$g" "$b"; fi
 }
 
 # Map an effort level to its ramp color by sampling the ramp at evenly spaced
@@ -386,25 +408,30 @@ effort_color() {
 # Percentages over 100 peg the fill and keep counting in the label.
 # Round a non-negative decimal string half-up ("12.5" -> 13, "42.6" -> 43).
 # printf '%.0f' would round halves to even, and awk's %d truncates.
-round() {
+round() {   # VALUE VAR
     # Anything but plain digits and a dot (an exponent form such as 1e-07,
     # a sign) goes through awk, which parses every numeric spelling.
-    case "$1" in ''|*[!0-9.]*|*.*.*) awk -v v="${1:-0}" 'BEGIN{printf "%d", int(v + 0.5)}'; return ;; esac
+    case "$1" in ''|*[!0-9.]*|*.*.*) printf -v "$2" '%s' "$(awk -v v="${1:-0}" 'BEGIN{printf "%d", int(v + 0.5)}')"; return ;; esac
     local i="${1%%.*}" f=""
     [ "$i" != "$1" ] && f="${1#*.}"
-    case "$f" in [5-9]*) printf '%d' $(( 10#${i:-0} + 1 )) ;; *) printf '%d' $(( 10#${i:-0} )) ;; esac
+    case "$f" in [5-9]*) printf -v "$2" '%d' $(( 10#${i:-0} + 1 )) ;; *) printf -v "$2" '%d' $(( 10#${i:-0} )) ;; esac
 }
 bar() {
     local pct="${1:-0}"
     local width="${2:-10}"
 
+    # Anything but a plain non-negative decimal is normalised first (rare).
+    case "$pct" in ''|*[!0-9.]*|*.*.*) pct=$(awk -v v="${pct:-0}" 'BEGIN{v+=0; if(v<0)v=0; printf "%.2f", v}') ;; esac
     local pct_int
-    pct_int=$(round "$pct")
+    round "$pct" pct_int
 
-    # Filled and empty block counts based on full width
-    local filled=$(awk -v p="$pct" -v w="$width" 'BEGIN{printf "%d", int(p * w / 100 + 0.5)}')
+    # Filled blocks = pct * width / 100, half-up, in integer hundredths.
+    local ip="${pct%%.*}" fp="" p100 filled
+    [ "$ip" != "$pct" ] && fp="${pct#*.}"
+    fp="${fp}00"; fp="${fp:0:2}"
+    p100=$(( 10#${ip:-0} * 100 + 10#$fp ))
+    filled=$(( (p100 * width + 5000) / 10000 ))
     [ "$filled" -gt "$width" ] && filled=$width
-    [ "$filled" -lt 0 ] && filled=0
     local empty=$(( width - filled ))
 
     local fill_str empty_str color
@@ -413,19 +440,21 @@ bar() {
 
     # Pick color from the shared ramp (matches the effort levels).
     local color
-    color=$(ramp_color "$pct_int")
+    ramp_color "$pct_int" color
 
     # Colored filled blocks, then plain empty blocks, then space and percentage
     printf "${color}%s${CLR_RESET}%s %s%%" "$fill_str" "$empty_str" "$pct_int"
 }
 
-# Format a dollar amount compactly: <1000 -> $123, >=1000 -> $1.3k
+# Format dollar amounts compactly, one per line: <10 -> $1.23, <1000 -> $123,
+# else $1.3k; an empty argument gives an empty line. One awk for all of them.
 fmt_money() {
-    awk -v v="$1" 'BEGIN{
-        if (v >= 1000) printf "$%.1fk", int(v / 100 + 0.5) / 10;   # half-up, not printf'"'"'s half-even
-        else if (v >= 10) printf "$%d", int(v + 0.5);
-        else printf "$%.2f", int(v * 100 + 0.5) / 100;
-    }'
+    awk 'BEGIN{ for (i = 1; i < ARGC; i++) { v = ARGV[i]
+        if (v == "") { print ""; continue }
+        v += 0
+        if (v >= 1000) printf "$%.1fk\n", int(v / 100 + 0.5) / 10   # half-up, not printf'"'"'s half-even
+        else if (v >= 10) printf "$%d\n", int(v + 0.5)
+        else printf "$%.2f\n", int(v * 100 + 0.5) / 100 } }' "$@"
 }
 
 # --- Daily + monthly spend from the usage endpoint (cached, background) ---
@@ -447,7 +476,6 @@ fmt_money() {
 # month counter resets at 00:00 UTC on the last day, so if the budget clock
 # lags UTC that evening's baseline re-pins via the month<baseline guard and
 # the day bar shows only post-reset spend until midnight.
-is_num() { case "$1" in ''|*[!0-9.]*|*.*.*|.) return 1 ;; *) return 0 ;; esac; }
 MONTHLY_LIMIT="${CLAUDE_BUDGET_MONTHLY_LIMIT:-0}"   # your own monthly target; 0 = use the response's limit
 is_num "$MONTHLY_LIMIT" || MONTHLY_LIMIT=0
 # Cache lives INSIDE the config dir (not ~/.cache) so a devcontainer that mounts
@@ -461,10 +489,12 @@ HOLD_FILE="$CACHE_DIR/budget-usage.hold"   # epoch before which no fetch is atte
 REFRESH_INTERVAL="${CLAUDE_BUDGET_REFRESH:-60}"   # seconds between usage fetches
 is_int "$REFRESH_INTERVAL" || REFRESH_INTERVAL=60
 [ "$REFRESH_INTERVAL" -ge 10 ] || REFRESH_INTERVAL=10
-mkdir -p "$CACHE_DIR" 2>/dev/null
+[ -d "$CACHE_DIR" ] || mkdir -p "$CACHE_DIR" 2>/dev/null
 
-now=$(date +%s)
-today=$(bdate +%Y-%m-%d)
+# The clock, from the printf builtin: epoch now, and on the budget clock
+# today's date, day of month, day of week and year-month.
+printf -v now '%(%s)T' -1
+bstamp '%F %-d %u %Y-%m' stamp; read -r today dom dow ym <<< "$stamp"
 
 # Fetch month-to-date spend and cache it as
 # "<date> <fetched-epoch> <today-dollars> <month-dollars> <limit-dollars> <workday-mask> <holiday-days-of-month...>".
@@ -531,21 +561,21 @@ if [ -f "$CACHE_FILE" ]; then
     if [ "$c_date" = "$today" ] && is_num "$c_day" && is_num "$c_mo" && is_mask "$c_mask"; then
         is_int "$c_stamp" && cache_age=$(( now - c_stamp ))
         day_cost="$c_day"; mo_cost="$c_mo"; wd_mask="$c_mask"; hol_doms="$c_hol"
-        is_num "$c_lim" && awk -v l="$c_lim" 'BEGIN{exit !(l+0 > 0)}' 2>/dev/null && MONTHLY_LIMIT="$c_lim"
+        is_pos "$c_lim" && MONTHLY_LIMIT="$c_lim"
     fi
 fi
 
 # Decide whether to trigger a background refresh: no usable cache, or one
 # older than the interval (a future stamp = clock skew, also stale), and no
 # hold from a recent failed fetch.
-hold_until=$(cat "$HOLD_FILE" 2>/dev/null); is_int "$hold_until" || hold_until=0
+hold_until=""; { read -r hold_until < "$HOLD_FILE"; } 2>/dev/null; is_int "$hold_until" || hold_until=0
 if { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; } \
    && [ "$now" -ge "$hold_until" ]; then
     # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge
     # permanently. The lock's own stamp file dates it; rename-then-remove so
     # two renders can't both claim it.
     if [ -d "$LOCK_DIR" ]; then
-        lock_stamp=$(cat "$LOCK_DIR/stamp" 2>/dev/null); is_int "$lock_stamp" || lock_stamp=0
+        lock_stamp=""; { read -r lock_stamp < "$LOCK_DIR/stamp"; } 2>/dev/null; is_int "$lock_stamp" || lock_stamp=0
         [ $(( now - lock_stamp )) -gt 300 ] && mv "$LOCK_DIR" "$LOCK_DIR.stale.$$" 2>/dev/null && rm -rf "$LOCK_DIR.stale.$$" 2>/dev/null
     fi
     # mkdir is atomic: only one refresher runs at a time.
@@ -559,14 +589,14 @@ fi
 # --- Budget math ---
 day_pct=""; mo_pct=""; day_allow=""; mo_over=0; day_label="day:"
 # No known limit (response had none, no override): the bars stay hidden.
-if [ -n "$day_cost" ] && awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' 2>/dev/null; then
+if [ -n "$day_cost" ] && is_pos "$MONTHLY_LIMIT"; then
     # Remaining WORKdays in the month, today included. The workday mask and
     # this month's holidays (days-of-month) arrive pre-derived in the cache
     # (see refresh_usage). On a non-workday today contributes nothing and the
     # count is the workdays still ahead (its spend draws on the next workday's
     # slice); floor at 1 so the last day of the month never divides by zero.
-    dom=$(bdate +%-d); dow=$(bdate +%u)
-    wd=$(count_workdays "$wd_mask" "$hol_doms" "$dom" "$dow" "$(date -d "$(bdate +%Y-%m-01) +1 month -1 day" +%-d)")
+    days_in_month "${ym%-*}" "${ym#*-}"
+    wd=$(count_workdays "$wd_mask" "$hol_doms" "$dom" "$dow" "$DIM")
     [ "$wd" -ge 1 ] 2>/dev/null || wd=1
     # The cue that today's allowance is borrowed from the next workday.
     is_workday "$wd_mask" "$dow" || day_label="off:"
@@ -582,23 +612,6 @@ if [ -n "$day_cost" ] && awk -v l="$MONTHLY_LIMIT" 'BEGIN{exit !(l > 0)}' 2>/dev
         printf "%d %.6g %d %.6g", int(dp + 0.5), allow, int(mp + 0.5), over   # half-up
     }')"
 fi
-
-# Model info
-model=$(echo "$input" | jq -r '.model.display_name // empty')
-
-# Reasoning effort level (low | medium | high | xhigh | max)
-effort=$(echo "$input" | jq -r '.effort.level // empty')
-
-# Context usage
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty | numbers')
-
-# Session cost (real-time, already in the input)
-session_cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-
-# Location + session churn
-cur_dir=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
-lines_added=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
-lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
 
 # --- Responsive bar widths: bars fill the terminal width ---
 # The statusline runs as a piped command (no controlling TTY), but Claude Code
@@ -622,8 +635,9 @@ BAR_NOM=16; BAR_MIN=10
 
 # Precompute the variable-length text pieces so we can measure the fixed
 # "chrome" (everything that isn't bar blocks) exactly.
-[ -n "$session_cost" ] && session_money=$(fmt_money "$session_cost") || session_money=""
-ctx_i=$( [ -n "$used_pct" ] && round "$used_pct" || echo "" )
+mapfile -t money < <(fmt_money "$session_cost" "$day_cost" "$day_allow" "$mo_cost" "$MONTHLY_LIMIT" "$mo_over")
+session_money="${money[0]:-}"
+ctx_i=""; [ -n "$used_pct" ] && round "$used_pct" ctx_i
 
 have_ctx=0; have_day=0; have_mo=0
 [ -n "$used_pct" ] && have_ctx=1
@@ -634,13 +648,13 @@ have_ctx=0; have_day=0; have_mo=0
 # overage tag on the month once past the limit.
 day_money=""; mo_money=""; over_str=""
 if [ "$have_day" = 1 ]; then
-    day_money=$(fmt_money "$day_cost")
+    day_money="${money[1]}"
     # An exhausted month has no allowance to show a denominator for.
-    awk -v a="$day_allow" 'BEGIN{exit !(a > 0)}' && day_money="$day_money/$(fmt_money "$day_allow")"
+    is_pos "$day_allow" && day_money="$day_money/${money[2]}"
 fi
 if [ "$have_mo" = 1 ]; then
-    mo_money="$(fmt_money "$mo_cost")/$(fmt_money "$MONTHLY_LIMIT")"
-    awk -v o="$mo_over" 'BEGIN{exit !(o > 0)}' && over_str="+$(fmt_money "$mo_over")"
+    mo_money="${money[3]}/${money[4]}"
+    is_pos "$mo_over" && over_str="+${money[5]}"
 fi
 
 # --- Per-piece visible "chrome" widths (everything that isn't bar blocks) ---
@@ -709,7 +723,7 @@ build_budget() {  # $1 = day width, $2 = mo width
     if [ "$have_mo" = 1 ]; then
         s="$s month:$(bar "$mo_pct" "$2")"
         [ -n "$mo_money" ] && s="$s ${CLR_DIM}${mo_money}${CLR_RESET}"
-        [ -n "$over_str" ] && s="$s $(ramp_color 100)${over_str}${CLR_RESET}"
+        [ -n "$over_str" ] && { ramp_color 100 coral; s="$s ${coral}${over_str}${CLR_RESET}"; }
     fi
     printf '%s' "${s# }"
 }
@@ -722,7 +736,7 @@ fmt_pair() {
     [ "$r" -gt 0 ] 2>/dev/null || r=0
     (( a == 0 && r == 0 )) && return
     local pc mc
-    if [ "$style" = hot ]; then pc="$(ramp_color 0)" mc="$(ramp_color 100)"; else pc="$CLR_DIM" mc="$CLR_DIM"; fi
+    if [ "$style" = hot ]; then ramp_color 0 pc; ramp_color 100 mc; else pc="$CLR_DIM" mc="$CLR_DIM"; fi
     (( a > 0 )) && out="${pc}+${a}${CLR_RESET}"
     if (( r > 0 )); then
         [ -n "$out" ] && out="$out${CLR_DIM}/${CLR_RESET}"
@@ -733,7 +747,10 @@ fmt_pair() {
 
 # Parse `git diff --shortstat` on stdin -> "added removed" (0 0 when empty).
 parse_shortstat() {
-    awk '{for(i=1;i<=NF;i++){if($(i+1)~/insertion/)a=$i; if($(i+1)~/deletion/)d=$i}} END{printf "%d %d", a, d}'
+    local line w prev="" a=0 r=0
+    IFS= read -r line
+    for w in $line; do case "$w" in insertion*) a=$prev ;; deletion*) r=$prev ;; esac; prev=$w; done
+    printf '%d %d' "$a" "$r"
 }
 
 # Location line grammar: path, branch, then facts ordered now -> ambient:
@@ -750,7 +767,10 @@ build_locline() {
     # so a deep cwd can't push the interesting right side of the line off-screen.
     local disp="${dir/#$HOME/\~}"
     if [ ${#disp} -gt 35 ]; then
-        disp=$(p="$disp" awk 'BEGIN{n=split(ENVIRON["p"],a,"/"); o=a[1]; for(i=2;i<n;i++) o=o"/"substr(a[i],1,1); print o"/"a[n]}')
+        local parts n i o
+        IFS=/ read -ra parts <<< "$disp"; n=${#parts[@]}; o="${parts[0]}"
+        for ((i = 1; i < n - 1; i++)); do o="$o/${parts[i]:0:1}"; done
+        disp="$o/${parts[n-1]}"
     fi
     local s="${CLR_DIM}${disp}${CLR_RESET}"
 
@@ -778,7 +798,10 @@ build_locline() {
         # Only text files under 1 MB count, so a stray build artifact or a
         # not-yet-ignored data dump can't turn every render into a disk scan.
         # ls-files emits repo-relative paths, so the pipeline runs from the repo.
-        u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null \
+        # Cheap check first: the pipeline runs only when something is untracked.
+        u=0; local first=""
+        read -r -d '' first < <(git -C "$dir" ls-files --others --exclude-standard -z 2>/dev/null)
+        [ -n "$first" ] && u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null \
                | xargs -0 sh -c 'find "$@" -maxdepth 0 -type f -size -1024k -print0' sh 2>/dev/null \
                | xargs -0 grep -Ic '' 2>/dev/null) | awk -F: '{s+=$NF} END{print s+0}' )
         pair=$(fmt_pair $(( a + u )) "$r" hot)
