@@ -59,3 +59,28 @@ tick() { render "$NOW" "$@"; wait_refresh; }
     [ $(( (t1 - t0) / 1000000 )) -lt 1500 ] || { echo "render took $(( (t1 - t0) / 1000000 )) ms"; false; }
     wait_refresh
 }
+
+# --- damaged cache files: each is treated as no cache, so the render hides
+#     the bars, exits 0, and triggers a refresh that rewrites the line ---
+@test "an empty cache file" {
+    : > "$(cache_path)"; tick; assert_status 0; assert_lacks "month:"; assert_equal "$(curl_calls)" 1
+    read -r _ _ rest < "$(cache_path)"; [[ "$rest" == "0 120 400 1111100 7"* ]]
+}
+@test "a cache line cut off mid-write (date and stamp only)" {
+    printf '2026-09-05 %s' "$STAMP" > "$(cache_path)"; tick; assert_status 0; assert_lacks "month:" "day:" "off:"; assert_equal "$(curl_calls)" 1
+}
+@test "a cache line missing its newline still parses" {
+    printf '2026-09-05 %s 3.25 120 400 1111100 7' "$STAMP" > "$(cache_path)"; tick; assert_has "month:"; assert_equal "$(curl_calls)" 0
+}
+@test "binary junk in the cache" {
+    head -c 200 /dev/urandom > "$(cache_path)"; tick; assert_status 0; assert_lacks "month:"; assert_equal "$(curl_calls)" 1
+}
+@test "a cache file that is a directory" {
+    rm -f "$(cache_path)"; mkdir "$(cache_path)"; tick; assert_status 0; assert_lacks "month:"
+    run cat "$FAKE_CURL_LOG"; assert_status 0   # the refresh ran, and could not write; no crash either way
+    rmdir "$(cache_path)" 2>/dev/null || rm -rf "$(cache_path)"
+}
+@test "an unreadable baseline file does not stop the refresh" {
+    printf '2026-09-05 100\n' > "$DAYSTART"; chmod 000 "$DAYSTART"; rm -f "$(cache_path)"; tick
+    read -r _ _ rest < "$(cache_path)"; [[ "$rest" == "0 120 400 1111100 7"* ]]; chmod 644 "$DAYSTART"
+}
