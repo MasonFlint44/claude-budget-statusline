@@ -1,0 +1,5 @@
+calendar: no file at /nonexistent/calendar.conf: workdays mon-fri, no holidays
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+September 2026: 22 workdays, 18 remaining
+--- stderr

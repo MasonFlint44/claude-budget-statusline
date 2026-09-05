@@ -1,0 +1,5 @@
+calendar: calendars/empty.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+September 2026: 22 workdays, 18 remaining
+--- stderr

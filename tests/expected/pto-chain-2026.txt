@@ -1,0 +1,13 @@
+calendar: calendars/pto-chain.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  next Sat=none
+2026-07-03 Fri Day Before The Fourth
+2026-09-14 Mon spans a tab
+2026-09-15 Tue spans a tab
+2026-09-16 Wed spans a tab
+2026-09-17 Thu spans a tab
+2026-09-18 Fri spans a tab
+2026-12-25 Fri Christmas Day
+2026-12-26 Sat Boxing Day (not a workday, no effect)
+September 2026: 17 workdays, 13 remaining
+--- stderr

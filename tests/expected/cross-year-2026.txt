@@ -1,0 +1,10 @@
+calendar: calendars/cross-year.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2026-01-01 Thu New Year break
+2026-01-02 Fri New Year break
+2026-12-31 Thu Straddle
+September 2026: 22 workdays, 18 remaining
+--- stderr
+calendar: skipping line 4 (cannot parse): once 2026-06-15.. dangling
+calendar: skipping line 5 (cannot parse): once 2026-06-15..2026-06 half

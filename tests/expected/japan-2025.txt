@@ -1,0 +1,9 @@
+calendar: calendars/japan.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  next Sat=none
+2025-01-01 Wed New Year's Day
+2025-02-11 Tue National Foundation Day
+2025-05-03 Sat Constitution Day (not a workday, no effect)
+2025-05-05 Mon Children's Day
+2025-05-06 Tue Greenery Day (observed from Sun 05-04)
+--- stderr

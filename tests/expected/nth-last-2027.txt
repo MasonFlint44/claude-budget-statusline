@@ -1,0 +1,13 @@
+calendar: calendars/nth-last.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2027-01-05 Tue Single-digit month
+2027-06-28 Mon Last Sunday of June (non-workday -> observed) (observed from Sun 06-27)
+2027-12-31 Fri Last Friday of December
+--- stderr
+calendar: skipping line 1 (no such weekday in 2027): nth 5 fri 05 Fifth Friday of May (exists in 2026, not 2027)
+calendar: skipping line 2 (no such weekday in 2027): nth 5 sun 03 Fifth Sunday of March (2026: Mar 29, a non-workday -> observed)
+calendar: skipping line 5 (cannot parse): nth 0 mon 01 zero
+calendar: skipping line 6 (cannot parse): nth 1 xyz 01 bad day
+calendar: skipping line 7 (cannot parse): last mon 13 bad month
+calendar: skipping line 9 (no such date in 2027): fixed 13-01 bad month

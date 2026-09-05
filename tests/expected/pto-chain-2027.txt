@@ -1,0 +1,13 @@
+calendar: calendars/pto-chain.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  next Sat=none
+2027-07-03 Sat Day Before The Fourth (not a workday, no effect)
+2027-12-24 Fri PTO
+2027-12-25 Sat Christmas Day (not a workday, no effect)
+2027-12-27 Mon Boxing Day (observed from Sun 12-26)
+2027-12-27 Mon Year-end PTO
+2027-12-28 Tue Year-end PTO
+2027-12-29 Wed Year-end PTO
+2027-12-30 Thu Year-end PTO
+2027-12-31 Fri Year-end PTO
+--- stderr

@@ -1,0 +1,15 @@
+calendar: statusline/config/calendar.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2021-12-31 Fri New Year's Day (observed from Sat 01-01)
+2022-01-17 Mon Birthday of Martin Luther King, Jr.
+2022-02-21 Mon Washington's Birthday
+2022-05-30 Mon Memorial Day
+2022-06-20 Mon Juneteenth National Independence Day (observed from Sun 06-19)
+2022-07-04 Mon Independence Day
+2022-09-05 Mon Labor Day
+2022-10-10 Mon Columbus Day
+2022-11-11 Fri Veterans Day
+2022-11-24 Thu Thanksgiving Day
+2022-12-26 Mon Christmas Day (observed from Sun 12-25)
+--- stderr

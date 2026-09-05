@@ -1,0 +1,16 @@
+calendar: statusline/config/calendar.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2026-01-01 Thu New Year's Day
+2026-01-19 Mon Birthday of Martin Luther King, Jr.
+2026-02-16 Mon Washington's Birthday
+2026-05-25 Mon Memorial Day
+2026-06-19 Fri Juneteenth National Independence Day
+2026-07-03 Fri Independence Day (observed from Sat 07-04)
+2026-09-07 Mon Labor Day
+2026-10-12 Mon Columbus Day
+2026-11-11 Wed Veterans Day
+2026-11-26 Thu Thanksgiving Day
+2026-12-25 Fri Christmas Day
+September 2026: 21 workdays, 18 remaining
+--- stderr

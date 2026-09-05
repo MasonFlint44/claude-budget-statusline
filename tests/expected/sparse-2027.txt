@@ -1,0 +1,9 @@
+calendar: calendars/sparse.conf
+workdays: Mon
+observe:  nearest
+2027-12-20 Mon D (observed from Tue 12-28)
+2027-12-26 Sun B (not a workday, no free workday to observe it on)
+2027-12-27 Mon C
+2027-12-29 Wed E (not a workday, no free workday to observe it on)
+2028-01-03 Mon A (observed from Sat 12-25)
+--- stderr

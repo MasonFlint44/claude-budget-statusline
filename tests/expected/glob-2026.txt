@@ -1,0 +1,9 @@
+calendar: calendars/glob.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+September 2026: 22 workdays, 18 remaining
+--- stderr
+calendar: line 1: unknown day '*'
+calendar: line 1: no workdays named, line ignored
+calendar: line 2: unknown day range 'mon-fri?'
+calendar: line 2: no workdays named, line ignored

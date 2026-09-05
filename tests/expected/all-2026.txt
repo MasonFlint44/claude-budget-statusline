@@ -1,0 +1,6 @@
+calendar: calendars/all.conf
+workdays: Mon Tue Wed Thu Fri Sat Sun
+observe:  nearest
+2026-07-04 Sat July
+September 2026: 30 workdays, 26 remaining
+--- stderr

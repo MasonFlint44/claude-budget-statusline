@@ -1,0 +1,9 @@
+calendar: calendars/mon-thu.conf
+workdays: Mon Tue Wed Thu
+observe:  nearest Sat=prev Sun=next
+2026-07-01 Wed Sat hol (override prev -> Thu taken -> Wed) (observed from Sat 07-04)
+2026-07-02 Thu Fri hol (nearest -> Thu) (observed from Fri 07-03)
+2026-07-06 Mon Sun hol (override next -> Mon) (observed from Sun 07-05)
+2026-08-06 Thu Sat tie (nearest, ties forward -> Mon) (observed from Sat 08-08)
+September 2026: 18 workdays, 15 remaining
+--- stderr

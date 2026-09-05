@@ -1,0 +1,19 @@
+calendar: calendars/bad-lines.conf
+workdays: Mon Tue Wed Fri
+observe:  nearest Mon=prev Wed=none
+2026-01-01 Thu New Year break (not a workday, no effect)
+2026-01-02 Fri New Year break
+September 2026: 18 workdays, 15 remaining
+--- stderr
+calendar: line 4: unknown day 'foo'
+calendar: line 4: unknown day 'bar'
+calendar: line 4: no workdays named, line ignored
+calendar: line 5: unknown observe option 'bogus'
+calendar: observe mon=... has no effect: Mon is a workday
+calendar: observe wed=... has no effect: Wed is a workday
+calendar: skipping line 6 (no such weekday in 2026): nth 5 fri 02 no fifth friday
+calendar: skipping line 7 (no such date in 2026): fixed 02-30 nope
+calendar: skipping line 9 (range ends before it starts): once 2026-03-05..2026-03-01 backwards
+calendar: skipping line 10 (range longer than a year): once 2020-01-01..2026-01-01 too long
+calendar: skipping line 11 (cannot parse): date 2026-04-01 old keyword
+calendar: skipping line 12 (cannot parse): holiday 07-04 unknown keyword

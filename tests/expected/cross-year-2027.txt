@@ -1,0 +1,7 @@
+calendar: calendars/cross-year.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2027-01-01 Fri Straddle
+--- stderr
+calendar: skipping line 4 (cannot parse): once 2026-06-15.. dangling
+calendar: skipping line 5 (cannot parse): once 2026-06-15..2026-06 half

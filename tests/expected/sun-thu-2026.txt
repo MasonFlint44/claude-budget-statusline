@@ -1,0 +1,16 @@
+calendar: calendars/sun-thu.conf
+workdays: Mon Tue Wed Thu Sun
+observe:  nearest
+2026-05-14 Thu Independence Day
+2026-07-05 Sun Test Sat holiday (observed from Sat 07-04)
+2026-09-03 Thu Friday rule (observed from Fri 09-04)
+2026-09-12 Sat Sat PTO (not a workday, no effect)
+2026-09-14 Mon Vacation week
+2026-09-15 Tue Vacation week
+2026-09-16 Wed Vacation week
+2026-09-17 Thu Vacation week
+2026-09-18 Fri Vacation week (not a workday, no effect)
+2026-09-19 Sat Vacation week (not a workday, no effect)
+2026-09-20 Sun Vacation week
+September 2026: 16 workdays, 14 remaining
+--- stderr

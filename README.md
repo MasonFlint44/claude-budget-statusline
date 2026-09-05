@@ -155,6 +155,19 @@ mounts `~/.claude` carries them along).
 Set knobs in the environment Claude Code starts from, or inline in the
 `statusLine` command, e.g. `"command": "CLAUDE_BUDGET_TZ=UTC bash /path/to/budget-statusline.sh"`.
 
+## Tests
+
+```
+tests/run.sh          # UPDATE=1 rewrites the golden files; -v lists every check
+```
+
+Pure bash. Needs libfaketime (`apt install libfaketime`) so every run sees the
+same clock, and the script's own dependencies. Golden `--calendar` listings
+for the fixtures under `tests/calendars/` live in `tests/expected/`; render
+checks feed a hand-written cache line through the statusline and inspect the
+first line; flag handling is checked for exit codes. CI runs the suite on
+every push.
+
 ## License
 
 MIT — see `LICENSE`.

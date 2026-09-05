@@ -1,0 +1,15 @@
+calendar: statusline/config/calendar.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2027-01-01 Fri New Year's Day
+2027-01-18 Mon Birthday of Martin Luther King, Jr.
+2027-02-15 Mon Washington's Birthday
+2027-05-31 Mon Memorial Day
+2027-06-18 Fri Juneteenth National Independence Day (observed from Sat 06-19)
+2027-07-05 Mon Independence Day (observed from Sun 07-04)
+2027-09-06 Mon Labor Day
+2027-10-11 Mon Columbus Day
+2027-11-11 Thu Veterans Day
+2027-11-25 Thu Thanksgiving Day
+2027-12-24 Fri Christmas Day (observed from Sat 12-25)
+--- stderr

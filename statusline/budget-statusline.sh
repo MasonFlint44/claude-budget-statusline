@@ -282,7 +282,7 @@ count_workdays() {
 
 case "${1:-}" in --calendar|'') ;; *) echo "usage: $0 [--calendar [YYYY]]  (no flag: render the statusline from stdin)" >&2; exit 2 ;; esac
 if [ "${1:-}" = "--calendar" ]; then
-    case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) ;; *) echo "usage: $0 --calendar [YYYY]" >&2; exit 2 ;; esac
+    case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) [ $# -le 2 ] ;; *) false ;; esac || { echo "usage: $0 --calendar [YYYY]" >&2; exit 2; }
     y=$((10#${2:-$(bdate +%Y)}))
     if [ -z "$CALENDAR" ]; then echo "calendar: disabled (CLAUDE_BUDGET_CALENDAR=$CLAUDE_BUDGET_CALENDAR): workdays mon-fri, no holidays"
     elif [ ! -r "$CALENDAR" ]; then echo "calendar: no file at $CALENDAR: workdays mon-fri, no holidays"

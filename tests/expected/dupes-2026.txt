@@ -1,0 +1,7 @@
+calendar: calendars/dupes.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  prev
+2026-07-03 Fri First listing (observed from Sat 07-04)
+2026-12-25 Fri Christmas
+September 2026: 22 workdays, 18 remaining
+--- stderr

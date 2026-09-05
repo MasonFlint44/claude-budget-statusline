@@ -1,0 +1,9 @@
+calendar: calendars/europe.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  none
+2027-01-01 Fri Neujahr
+2027-05-01 Sat Tag der Arbeit (not a workday, no effect)
+2027-10-03 Sun Tag der Deutschen Einheit (not a workday, no effect)
+2027-12-25 Sat 1. Weihnachtstag (not a workday, no effect)
+2027-12-26 Sun 2. Weihnachtstag (not a workday, no effect)
+--- stderr

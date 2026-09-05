@@ -1,0 +1,7 @@
+calendar: calendars/uk.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  next
+2027-01-01 Fri New Year's Day
+2027-12-27 Mon Christmas Day (observed from Sat 12-25)
+2027-12-28 Tue Boxing Day (observed from Sun 12-26)
+--- stderr

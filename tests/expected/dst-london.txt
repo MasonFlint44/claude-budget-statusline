@@ -1,0 +1,17 @@
+calendar: calendars/dst-ranges.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2026-03-06 Fri spring
+2026-03-07 Sat spring (not a workday, no effect)
+2026-03-08 Sun spring (not a workday, no effect)
+2026-03-09 Mon spring
+2026-03-10 Tue spring
+2026-10-30 Fri DST week
+2026-10-31 Sat DST week (not a workday, no effect)
+2026-11-01 Sun DST week (not a workday, no effect)
+2026-11-02 Mon DST week
+2026-11-03 Tue DST week
+2026-11-04 Wed DST week
+2026-11-05 Thu DST week
+September 2026: 22 workdays, 18 remaining
+--- stderr
