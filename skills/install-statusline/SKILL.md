@@ -26,7 +26,7 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    ```
    The script is refreshed every time. `calendar.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
 
-3. **Check prerequisites** and report any that are missing: `bash`, `jq`, `curl`, `awk`, `git`, and a claude.ai login (the budget bars need the CLI's OAuth token; with an API key they stay hidden). On macOS, warn that the script needs GNU `date`, `readlink`, `seq` and `sed` (`brew install coreutils`, then the `g`-prefixed tools first on `PATH` or aliased).
+3. **Check prerequisites** and report any that are missing: `bash`, `jq`, `curl`, `awk`, `git`, and a claude.ai login (the budget bars need the CLI's OAuth token; with an API key they stay hidden). On macOS, warn that the script needs bash 4.4+ (`brew install bash`, then name that bash in the `statusLine` command: `"command": "/opt/homebrew/bin/bash <CFG>/statusline/budget-statusline.sh"`); the system bash is 3.2.
 
 4. **Wire settings.** Read `$CFG/settings.json`. Show the user the exact change before making it, then set:
    ```json

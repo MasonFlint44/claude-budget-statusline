@@ -110,18 +110,16 @@ next week", "we work Sunday to Thursday", "show my budget calendar".
   do. With an API key there is no token; with a plan whose `/usage` page
   shows no dollar amount there is no figure. In both cases the bars stay
   hidden and the rest of the line still renders.
-- `bash` 4.4+, `jq`, `curl`, `awk`, GNU coreutils (`date -d`, `readlink -f`,
-  `sort`, `seq`, `sed`, `tr`, and friends) and findutils (`xargs`, `find`).
+- `bash` 4.4+, `jq`, `curl`, `awk`, `readlink -f`, `sort`, `xargs`, `find`
+  and `grep`. All the date arithmetic is done in bash, so no GNU `date`.
 - `git` — only for the branch and diff segment; blank without it.
 - `tput` — optional, for the terminal width when `COLUMNS` is unset.
 
-Linux and devcontainers work as-is. **macOS:** the BSD `date` and `readlink`
-don't take the flags the script uses. Install coreutils
-(`brew install coreutils`) and put its unprefixed tools first on the `PATH`
-the statusline command sees, e.g. `"command": "PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH bash /path/to/budget-statusline.sh"`
-(shell aliases don't reach a script). Untested on macOS; in particular, if
-Claude Code keeps the token in the Keychain rather than the credentials file
-there, the bars will stay hidden.
+Linux and devcontainers work as-is. **macOS:** needs a bash 4.4+ from
+Homebrew (the system bash is 3.2) named in the `statusLine` command, and
+`readlink -f`, which macOS has had since 12.3. Untested on macOS; in
+particular, if Claude Code keeps the token in the Keychain rather than the
+credentials file there, the bars will stay hidden.
 
 ## How the daily number works
 
