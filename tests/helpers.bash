@@ -113,7 +113,7 @@ fetch_setup() {
     DAYSTART="$CFG/cache/statusline/budget-usage.daystart"
     HOLD="$CFG/cache/statusline/budget-usage.hold"
     creds "$NOW" 3600      # a token valid for an hour past NOW
-    export FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000},"limit":{"amount_minor":40000}}}'
+    export FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"currency":"USD","exponent":2},"limit":{"amount_minor":40000,"currency":"USD","exponent":2}}}'
     unset FAKE_CURL_CODE FAKE_CURL_EXIT FAKE_CURL_SLEEP
 }
 # creds "TIME" SECONDS-UNTIL-EXPIRY   (write a credentials file; "none" = no expiresAt)

@@ -133,3 +133,11 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     printf '2026-09-05 -5\n' > "$DAYSTART"; refresh "$NOW"
     assert_equal "$(cat "$DAYSTART")" "2026-09-05 120"; run cache_contents; assert_has " 0 120 400 "
 }
+@test "the amount's exponent sets the minor unit: exponent 0 and 3, and absent means 2" {
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"exponent":0},"limit":{"amount_minor":40000,"exponent":0}}}' refresh "$NOW"
+    run cache_contents; assert_has " 12000 40000 "; rm -f "$(cache_path)"
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12345,"exponent":3},"limit":{"amount_minor":40000,"exponent":3}}}' refresh "$NOW"
+    run cache_contents; assert_has " 12.345 40 "; rm -f "$(cache_path)"
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000},"limit":{"amount_minor":40000}}}' refresh "$NOW"
+    run cache_contents; assert_has " 120 400 "
+}

@@ -587,9 +587,17 @@ refresh_usage() {
     if [ "$code" = 429 ]; then hold 300; return; fi
     [ -n "$resp" ] || { hold; return; }
     local month limit
+    # Amounts come in minor units with their exponent (12000 with exponent 2
+    # = 120.00); the exponent defaults to 2 when absent. The limit is
+    # .spend.limit, else .spend.cap.credits.
     read -r month limit <<< "$(printf '%s' "$resp" | jq -r '
+        def dollars: .amount_minor / pow(10; (.exponent // 2));
         if (.spend.used.amount_minor? // null) != null then
-            "\((.spend.used.amount_minor // 0) / 100) \((.spend.limit.amount_minor // .spend.cap.credits.amount_minor // 0) / 100)"
+            (.spend.used | dollars) as $m
+            | (if (.spend.limit.amount_minor? // null) != null then (.spend.limit | dollars)
+               elif (.spend.cap.credits.amount_minor? // null) != null then (.spend.cap.credits | dollars)
+               else 0 end) as $l
+            | "\($m) \($l)"
         else empty end' 2>/dev/null)"
     [ -n "$month" ] || { hold; return; }
     # Your own target wins over the org's; neither -> 0 -> bars hidden.
