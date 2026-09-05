@@ -125,3 +125,11 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     [ -e "$CFG/cache/statusline/budget-usage" ] && [ -e "$CFG/cache/statusline/budget-usage.daystart" ]
     [ ! -e "$HOME/.claude/cache/statusline/budget-usage.tmp" ]
 }
+@test "holidays observed across New Year ride in December's cache: Christmas and New Year 2028 both land on Fridays" {
+    creds "2027-12-20 12:00:00" 3600; refresh "2027-12-20 12:00:00" CLAUDE_BUDGET_CALENDAR="$SHIPPED"
+    run cache_contents; assert_has "2027-12-20 " " 1111100 24 31"
+}
+@test "a garbled baseline is re-pinned rather than trusted" {
+    printf '2026-09-05 -5\n' > "$DAYSTART"; refresh "$NOW"
+    assert_equal "$(cat "$DAYSTART")" "2026-09-05 120"; run cache_contents; assert_has " 0 120 400 "
+}

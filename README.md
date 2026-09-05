@@ -111,7 +111,7 @@ next week", "we work Sunday to Thursday", "show my budget calendar".
   shows no dollar amount there is no figure. In both cases the bars stay
   hidden and the rest of the line still renders.
 - `bash` 4+, `jq`, `curl`, `awk`, GNU coreutils (`date -d`, `readlink -f`,
-  `sort`, `tr`, `wc`, and friends) and findutils (`xargs`).
+  `sort`, `seq`, `sed`, `tr`, and friends) and findutils (`xargs`, `find`).
 - `git` — only for the branch and diff segment; blank without it.
 - `tput` — optional, for the terminal width when `COLUMNS` is unset.
 
@@ -177,6 +177,7 @@ and nothing is installed system-wide. One file per area:
 | `fetch.bats` | the usage fetch through a fake `curl` (`tests/bin/curl`): request shape, response shapes, day-start baseline, limit precedence, every failure's hold |
 | `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_BUDGET_REFRESH` |
 | `layout.bats` | bar widths across terminal widths, the two-row split, model/effort/context/cost pieces |
+| `colors.bats` | the escapes: ramp colours on bars and effort, dim annotations, input text printed verbatim |
 | `repoline.bats` | the location row against a scratch git repository with a remote |
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |

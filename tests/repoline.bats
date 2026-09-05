@@ -98,3 +98,9 @@ loc() {
     ADDED=4 REMOVED=1 loc
     assert_has "⎇  feature · pending +1 ↑1 · vs main +2 · session +4/-1"
 }
+@test "the directory falls back to .cwd when workspace.current_dir is absent" {
+    cd "$BATS_TEST_TMPDIR"   # not the repo itself, so the $PWD fallback can't mask a miss
+    run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "{\"cwd\":\"$REPO\"}" \
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_REPO_LINE=on bash "$SL"
+    [[ "$output" == *"/project ⎇  main" ]] || { echo "got: $output"; false; }
+}

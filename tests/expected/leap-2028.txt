@@ -1,0 +1,5 @@
+calendar: calendars/leap.conf
+workdays: Mon Tue Wed Thu Fri
+observe:  nearest
+2028-02-29 Tue Leap Day
+--- stderr

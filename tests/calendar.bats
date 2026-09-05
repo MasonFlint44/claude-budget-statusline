@@ -36,6 +36,7 @@ load helpers
 @test "nth/last rules, 2026: fifth Friday exists" { golden nth-last-2026 nth-last.conf 2026; }
 @test "nth/last rules, 2027: no fifth Friday in May" { golden nth-last-2027 nth-last.conf 2027; }
 @test "every warning path" { golden bad-lines-2026 bad-lines.conf 2026; }
+@test "a leap-day rule: skipped with a warning in 2027, listed in 2028" { golden leap-2027 leap.conf 2027; golden leap-2028 leap.conf 2028; }
 @test "a * in a workdays line does not glob the cwd" { cd "$TESTS_DIR"; golden glob-2026 glob.conf 2026; }
 @test "BOM, CRLF, # inside names, bare observe, spaced lists, uppercase keywords" { golden oddities-2026 oddities.conf 2026; }
 

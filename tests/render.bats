@@ -76,3 +76,23 @@ setup() { fresh_config; }
     cache_line "2026-10-31 15:00:00" "10 390 400 1111100 12"; render "2026-10-31 15:00:00"
     assert_has "off:" " 50% " '$10/$20'
 }
+@test "a cache line with no holidays field: every workday counts" {
+    # 18 workdays after Saturday incl. Labor Day -> 283.25 / 18 = 15.74 -> "$16"; 3.25 / 15.74 = 20.6 -> 21%.
+    cache_line "$NOW" "3.25 120 400 1111100"; render "$NOW"; assert_has "off:" " 21% " '$3.25/$16'
+}
+@test "the cached limit renders even when the override differs; the override lands at the next refresh" {
+    cache_line "$NOW" "3.25 120 400 1111100 7"; render "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=250; assert_has '$120/$400'
+}
+@test "a non-numeric limit in the cache: bars hidden unless the override supplies one" {
+    cache_line "$NOW" "3.25 120 lots 1111100 7"; render "$NOW"; assert_lacks "month:"
+    render "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=250; assert_has '$120/$250'
+}
+@test "an unknown CLAUDE_BUDGET_TZ means UTC: Fri 20:00 Chicago is Saturday there" {
+    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7" CLAUDE_BUDGET_TZ=Nowhere/Land
+    render "2026-09-04 20:00:00" CLAUDE_BUDGET_TZ=Nowhere/Land; assert_has "off:"
+}
+@test "a context percentage in exponent form rounds like any other" {
+    INPUT='{"context_window":{"used_percentage":1e-07}}' render "$NOW"; assert_status 0; assert_has "ctx:"; [[ "$output" == *" 0%" ]]
+    INPUT='{"context_window":{"used_percentage":9.95e1}}' render "$NOW"; [[ "$output" == *" 100%" ]]
+}
+@test "null on stdin renders like an empty object" { INPUT='null' render "$NOW"; assert_status 0; assert_lacks "ctx:"; }

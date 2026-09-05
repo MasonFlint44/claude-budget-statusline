@@ -85,11 +85,14 @@ INPUT_DEFAULT='{"model":{"display_name":"Opus"},"context_window":{"used_percenta
 # render "TIME" [VAR=value ...]   -> $output = the statusline, ANSI stripped; $lines[] per row.
 #   INPUT overrides the JSON; COLUMNS defaults to 120; the repo line is off
 #   unless CLAUDE_BUDGET_REPO_LINE is passed.
-_render() {
+_render_raw() {
     local input="$1" t="$2"; shift 2
-    printf '%s' "$input" | at "$t" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS="${COLUMNS_OVERRIDE:-120}" CLAUDE_BUDGET_REPO_LINE=off "$@" bash "$SL" | strip_ansi
+    printf '%s' "$input" | at "$t" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS="${COLUMNS_OVERRIDE:-120}" CLAUDE_BUDGET_REPO_LINE=off "$@" bash "$SL"
 }
+_render() { _render_raw "$@" | strip_ansi; }
 render() { local t="$1"; shift; run _render "${INPUT:-$INPUT_DEFAULT}" "$t" "$@"; }
+# render_raw: the same, escapes kept, for the colour checks.
+render_raw() { local t="$1"; shift; run _render_raw "${INPUT:-$INPUT_DEFAULT}" "$t" "$@"; }
 # first_line -> the first row only, for assertions on the budget line.
 first_line() { printf '%s' "${lines[0]:-}"; }
 

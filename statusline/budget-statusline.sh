@@ -387,6 +387,9 @@ effort_color() {
 # Round a non-negative decimal string half-up ("12.5" -> 13, "42.6" -> 43).
 # printf '%.0f' would round halves to even, and awk's %d truncates.
 round() {
+    # Anything but plain digits and a dot (an exponent form such as 1e-07,
+    # a sign) goes through awk, which parses every numeric spelling.
+    case "$1" in ''|*[!0-9.]*|*.*.*) awk -v v="${1:-0}" 'BEGIN{printf "%d", int(v + 0.5)}'; return ;; esac
     local i="${1%%.*}" f=""
     [ "$i" != "$1" ] && f="${1#*.}"
     case "$f" in [5-9]*) printf '%d' $(( 10#${i:-0} + 1 )) ;; *) printf '%d' $(( 10#${i:-0} )) ;; esac
@@ -503,7 +506,7 @@ refresh_usage() {
     # Day-start baseline: first sighting of a budget-clock day pins the month total.
     local b_date b_month
     read -r b_date b_month < "$BASE_FILE" 2>/dev/null
-    if [ "$b_date" != "$today" ] || ! awk -v m="$month" -v b="${b_month:-0}" 'BEGIN{exit !(m >= b)}'; then
+    if [ "$b_date" != "$today" ] || ! is_num "${b_month:-}" || ! awk -v m="$month" -v b="$b_month" 'BEGIN{exit !(m >= b)}'; then
         b_month="$month"
         printf '%s %s\n' "$today" "$b_month" > "$BASE_FILE" 2>/dev/null
     fi
