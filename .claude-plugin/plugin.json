@@ -1,7 +1,7 @@
 {
   "name": "budget-statusline",
   "displayName": "Budget Statusline",
-  "version": "1.0.0",
-  "description": "Claude Code statusline with daily + monthly spend budget bars read from the same numbers the /usage page shows. Install with /install-statusline.",
+  "version": "2.0.0",
+  "description": "Claude Code statusline with daily + monthly spend budget bars read from the same numbers the /usage page shows. Install with /install-statusline; edit the work week, holidays and PTO with /budget-calendar.",
   "skills": "./skills/"
 }

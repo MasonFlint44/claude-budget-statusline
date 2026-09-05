@@ -11,7 +11,7 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
 
 1. **Locate the source.** The files ship with this plugin at `${CLAUDE_PLUGIN_ROOT}/statusline/`:
    - `budget-statusline.sh`
-   - `config/holidays.conf` (the holiday calendar)
+   - `config/calendar.conf` (the work-week and holiday calendar)
 
    Resolve the config dir as `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`; call it `$CFG` below.
 
@@ -20,11 +20,11 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
    mkdir -p "$CFG/statusline/config"
    cp "${CLAUDE_PLUGIN_ROOT}/statusline/budget-statusline.sh" "$CFG/statusline/"
-   [ -e "$CFG/statusline/config/holidays.conf" ] || \
-     cp "${CLAUDE_PLUGIN_ROOT}/statusline/config/holidays.conf" "$CFG/statusline/config/"
+   [ -e "$CFG/statusline/config/calendar.conf" ] || \
+     cp "${CLAUDE_PLUGIN_ROOT}/statusline/config/calendar.conf" "$CFG/statusline/config/"
    chmod +x "$CFG/statusline/budget-statusline.sh"
    ```
-   The script is refreshed every time. `holidays.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
+   The script is refreshed every time. `calendar.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
 
 3. **Check prerequisites** and report any that are missing: `bash`, `jq`, `curl`, `awk`, `git`, and a claude.ai login (the budget bars need the CLI's OAuth token; with an API key they stay hidden). On macOS, warn that the script needs GNU `date`, `stat`, and `readlink` (`brew install coreutils`, then the `g`-prefixed tools first on `PATH` or aliased).
 
@@ -34,10 +34,10 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    ```
    with `<CFG>` expanded to the real path. If a different `statusLine` is already set, say so and ask before replacing it. Never touch any other key.
 
-5. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). The budget bars show blank on the first render and fill within a minute once the background fetch has run. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_HOLIDAYS`, `CLAUDE_BUDGET_REPO_LINE`).
+5. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). The budget bars show blank on the first render and fill within a minute once the background fetch has run. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_CALENDAR`, `CLAUDE_BUDGET_REPO_LINE`), and at `/budget-calendar` for editing the calendar (work week, holidays, PTO).
 
 ## Do not
 
 - Do not point `statusLine` at the plugin directory — it changes on update.
-- Do not overwrite an existing `holidays.conf`.
+- Do not overwrite an existing `calendar.conf`.
 - Do not edit settings without showing the change first.

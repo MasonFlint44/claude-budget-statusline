@@ -7,8 +7,11 @@ budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
   month's *remaining* budget evenly over the remaining workdays of the month
-  (weekdays minus holidays), so a heavy day early in the month shrinks the days
-  after it, and a quiet day gives the rest of the month room.
+  (the days you work, minus holidays, per `config/calendar.conf`), so a heavy
+  day early in the month shrinks the days after it, and a quiet day gives the
+  rest of the month room. On a day you don't work the label reads `off:` and
+  the allowance shown is the next workday's slice, which that day's spend
+  draws down.
 - **month** — month-to-date spend against the monthly limit. Past the limit
   the bar pegs and shows the overage.
 
@@ -50,31 +53,48 @@ the background fetch has run.
 | File | Purpose |
 |------|---------|
 | `statusline/budget-statusline.sh` | the statusline itself |
-| `statusline/config/holidays.conf` | the holiday calendar — ships with the US federal holidays; edit to match your company's, add your own closures or PTO as `date` lines. Yours once installed: the installer never overwrites it |
+| `statusline/config/calendar.conf` | the calendar — which days you work and which dates are holidays. Ships with a Monday-to-Friday week and the US federal holidays; edit to match yours, add closures or PTO as `once` lines. Yours once installed: the installer never overwrites it |
 
-Holiday rules are one per line: `fixed MM-DD`, `nth N DOW MM`, `last DOW MM`,
-or `date YYYY-MM-DD`, each followed by a name. An `observe` line says how a
-fixed date that lands on a weekend is observed, per weekend day: `prev` or
-`next` move it to the nearest working day in that direction that isn't already
-a holiday (so Christmas and Boxing Day chain onto Monday and Tuesday), `none`
-leaves it. Common settings:
+The calendar is one entry per line:
+
+- `workdays DAYS` — the days you work: a wrapping range (`mon-fri`, `sun-thu`),
+  a list (`mon,tue,wed,thu`), a mix (`mon-wed,fri`) or `all`. Default `mon-fri`.
+- `fixed MM-DD`, `nth N DOW MM`, `last DOW MM` — yearly holidays, each
+  followed by a name (`nth 4 thu 11 Thanksgiving Day`).
+- `once YYYY-MM-DD[..YYYY-MM-DD] name` — a one-off date or inclusive range,
+  for PTO and closures. Never shifted; one on a day you don't work anyway
+  simply has no effect.
+- `observe MODE [DOW=MODE ...]` — how a yearly holiday that falls on a day
+  you don't work is observed. `nearest` moves it to the nearest workday, ties
+  going forward; `next` and `prev` always go that way; `none` gives no
+  substitute day. A `DOW=MODE` token overrides the mode for one day. The
+  substitute skips days that are already holidays, so Christmas and Boxing Day
+  chain onto Monday and Tuesday. Because the modes follow the `workdays`
+  line, changing your week doesn't mean rewriting this line. Common settings:
 
 | | |
 |---|---|
-| `observe sat=prev sun=next` | US federal (the default) |
-| `observe sat=next sun=next` | UK, Ireland, Australia, New Zealand, Canada |
-| `observe sat=none sun=next` | Japan |
+| `observe nearest` | US federal (the default) |
+| `observe next` | UK, Ireland, Australia, New Zealand, Canada |
+| `observe next sat=none` | Japan |
 | `observe none` | no substitution (most of continental Europe) |
 
 To check the calendar:
 
 ```
-bash statusline/budget-statusline.sh --holidays 2027
+bash statusline/budget-statusline.sh --calendar 2027
 ```
 
-The listing is by the holiday's own year, so a New Year's Day observed on the
-previous December 30 or 31 appears under the new year, the way official
-calendars print it. The workday math itself goes by the observed date.
+It prints the work week, the observe policy, every holiday with its observed
+date (tagged when it was shifted or has no effect), and for the current year
+this month's total and remaining workday counts. Lines that don't parse are
+reported. The listing is by the holiday's own year, so a New Year's Day
+observed on the previous December 30 or 31 appears under the new year, the
+way official calendars print it. The workday math itself goes by the observed
+date.
+
+The `/budget-calendar` skill edits the installed calendar for you: "add PTO
+next week", "we work Sunday to Thursday", "show my budget calendar".
 
 ## Prerequisites
 
@@ -121,9 +141,9 @@ mounts `~/.claude` carries them along).
   minimum 10; anything else falls back to 60. The fetch runs detached and
   never blocks a render. A failed fetch waits one interval before retrying,
   and an HTTP 429 waits five minutes.
-- `CLAUDE_BUDGET_HOLIDAYS` — path to a holiday rules file, if not the default;
-  `off` (or `none`, `0`, `false`) disables holidays entirely (every weekday
-  counts as a workday).
+- `CLAUDE_BUDGET_CALENDAR` — path to a calendar file, if not the default;
+  `off` (or `none`, `0`, `false`) means no file at all: a Monday-to-Friday
+  week with no holidays.
 - `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
   diff), leaving only the first. Default on.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
