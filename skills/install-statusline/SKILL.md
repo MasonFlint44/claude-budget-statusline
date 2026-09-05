@@ -35,7 +35,13 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    ```
    with `<CFG>` expanded to the real path. If a different `statusLine` is already set, say so and ask before replacing it. Never touch any other key.
 
-5. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). The budget bars show blank on the first render and fill within a minute once the background fetch has run. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_CALENDAR`, `CLAUDE_BUDGET_REPO_LINE`), and at `/budget-calendar` for editing the calendar (work week, holidays, PTO).
+5. **Run the doctor** on the installed copy, with any inline knobs from the `statusLine` command in front, and show its output:
+   ```bash
+   bash "$CFG/statusline/budget-statusline.sh" --doctor
+   ```
+   It checks the credentials, fetches the usage figures once in the foreground, and ends with `bars: will show` or `bars: hidden` after the step that failed. If the bars will be hidden, explain the failing line (an API-key session has no usage token; a plan with no dollar figure cannot show budget bars; a missing limit needs `CLAUDE_BUDGET_MONTHLY_LIMIT`) and point at `/budget-doctor` for later.
+
+6. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). A successful doctor run has already filled the cache, so the bars show on the first render. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_CALENDAR`, `CLAUDE_BUDGET_REPO_LINE`), at `/budget-calendar` for editing the calendar (work week, holidays, PTO), and at `/budget-doctor` if the bars ever go blank.
 
 ## Do not
 
