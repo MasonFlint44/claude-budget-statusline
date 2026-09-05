@@ -85,3 +85,11 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
 @test "a percentage past 999 pegs the label" {
     cache_line "$NOW" "50 5000 400 1111100 7"; render "$NOW"; assert_has "month:" " 999% "
 }
+@test "CLAUDE_BUDGET_REPO_LINE: off, none, no, 0, false (any case) hide the row; anything else keeps it" {
+    local v; for v in off none no 0 false OFF False; do
+        run _render "$FULL" "$NOW" CLAUDE_BUDGET_REPO_LINE="$v"; [ "${#lines[@]}" = 1 ] || { echo "row still shown with $v"; false; }
+    done
+    for v in on yes 1 true ""; do
+        run _render "$FULL" "$NOW" CLAUDE_BUDGET_REPO_LINE="$v"; [ "${#lines[@]}" = 2 ] || { echo "row hidden with '$v'"; false; }
+    done
+}

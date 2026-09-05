@@ -41,7 +41,7 @@ BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
 bdate() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" date "$@"; else date "$@"; fi; }
 # The calendar: CLAUDE_BUDGET_CALENDAR if set (a path, or off), else config/calendar.conf.
 CALENDAR="${CLAUDE_BUDGET_CALENDAR:-$SCRIPT_DIR/config/calendar.conf}"
-case "$CALENDAR" in off|none|0|false) CALENDAR="" ;; esac   # no file: workdays mon-fri, no holidays
+case "${CALENDAR,,}" in off|none|no|0|false) CALENDAR="" ;; esac   # no file: workdays mon-fri, no holidays
 
 # --- Calendar (config/calendar.conf) ---
 # Which days of the week you work and which dates are holidays, so the daily
@@ -867,8 +867,9 @@ else
 fi
 
 # Location + git + churn get their own final row unless switched off.
-case "${CLAUDE_BUDGET_REPO_LINE:-on}" in
-    0|off|no|false) ;;
+repo_line="${CLAUDE_BUDGET_REPO_LINE:-on}"
+case "${repo_line,,}" in
+    off|none|no|0|false) ;;
     *) loc_line=$(build_locline)
        [ -n "$loc_line" ] && out="$out"$'\n'"$loc_line" ;;
 esac

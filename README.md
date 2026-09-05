@@ -147,10 +147,11 @@ mounts `~/.claude` carries them along).
   never blocks a render. A failed fetch waits one interval before retrying,
   and an HTTP 429 waits five minutes.
 - `CLAUDE_BUDGET_CALENDAR` — path to a calendar file, if not the default;
-  `off` (or `none`, `0`, `false`) means no file at all: a Monday-to-Friday
-  week with no holidays.
+  `off` means no file at all: a Monday-to-Friday week with no holidays.
 - `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
   diff), leaving only the first. Default on.
+
+`off`, `none`, `no`, `0` and `false` all mean off, in any case.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
 Set knobs in the environment Claude Code starts from, or inline in the
