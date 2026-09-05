@@ -158,15 +158,27 @@ Set knobs in the environment Claude Code starts from, or inline in the
 ## Tests
 
 ```
-tests/run.sh          # UPDATE=1 rewrites the golden files; -v lists every check
+bats tests/                       # the whole suite (~30 s)
+bats tests/calendar.bats          # one area
+UPDATE=1 bats tests/calendar.bats # rewrite the golden listings
 ```
 
-Pure bash. Needs libfaketime (`apt install libfaketime`) so every run sees the
-same clock, and the script's own dependencies. Golden `--calendar` listings
-for the fixtures under `tests/calendars/` live in `tests/expected/`; render
-checks feed a hand-written cache line through the statusline and inspect the
-first line; flag handling is checked for exit codes. CI runs the suite on
-every push.
+[Bats](https://github.com/bats-core/bats-core) (`apt install bats`) plus
+libfaketime (`apt install libfaketime`), so every run sees the same clock:
+Saturday 2026-09-05 in America/Chicago. One file per area:
+
+| File | Covers |
+|------|--------|
+| `calendar.bats` | golden `--calendar` listings for the fixtures in `tests/calendars/` (expected output in `tests/expected/`) |
+| `render.bats` | the budget line from a hand-written cache line: labels, allowances, hidden states |
+| `fetch.bats` | the usage fetch through a fake `curl` (`tests/bin/curl`): request shape, response shapes, day-start baseline, limit precedence, every failure's hold |
+| `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_BUDGET_REFRESH` |
+| `layout.bats` | bar widths across terminal widths, the two-row split, model/effort/context/cost pieces |
+| `repoline.bats` | the location row against a scratch git repository with a remote |
+| `locale.bats` | comma-decimal locales (skipped where `de_DE.UTF-8` is not generated) |
+| `cli.bats` | flag handling |
+
+CI runs the suite on every push.
 
 ## License
 

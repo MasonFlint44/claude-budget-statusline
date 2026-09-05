@@ -67,7 +67,8 @@ case "$CALENDAR" in off|none|0|false) CALENDAR="" ;; esac   # no file: workdays 
 #                           Literal: never shifted. One that lands on a day
 #                           you don't work anyway simply has no effect.
 # Yearly rules (fixed/nth/last) follow the observe policy; once lines don't.
-# Lines that don't parse are skipped (reported by --calendar).
+# Keywords, day names and modes are case-insensitive. Lines that don't parse
+# are skipped (reported by --calendar).
 
 dow_num() {  # mon..sun -> 1..7 (matches date +%u); empty if unknown
     case "$1" in
@@ -97,7 +98,7 @@ read_calendar_settings() {  # $1 = conf, $2 = report bad lines
         lineno=$((lineno + 1))
         line="${line%$'\r'}"; line="${line#$'\xef\xbb\xbf'}"; line="${line%%#*}"
         read -r kind rest <<< "$line"
-        case "$kind" in
+        case "${kind,,}" in
             workdays)
                 mask=0000000
                 IFS=', ' read -ra toks <<< "$rest"
@@ -167,7 +168,7 @@ holidays_for_years() {
             read -r kind f1 f2 f3 rest <<< "$line"
             [ -n "$kind" ] || continue
             d=""; dow=""; name=""; skipwhy=""
-            case "$kind" in
+            case "${kind,,}" in
                 workdays|observe) continue ;;   # settings: read_calendar_settings
                 fixed)
                     name="$f2 $f3 $rest"

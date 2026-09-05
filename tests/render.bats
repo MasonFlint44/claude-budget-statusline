@@ -1,0 +1,78 @@
+#!/usr/bin/env bats
+# The budget line, rendered from a hand-written cache line. Cache line fields
+# after "<date> <stamp>": <today$> <month$> <limit$> <workday-mask> <holiday doms...>
+load helpers
+setup() { fresh_config; }
+
+# At NOW (Sat 09-05) on mon-fri, 17 workdays remain after today (Labor Day off):
+# allowance = (400 - (120 - 3.25)) / 17 = 16.66 -> "$17"; 3.25 / 16.66 = 19%.
+@test "Saturday on a mon-fri week: off label, next workday's slice" {
+    cache_line "$NOW" "3.25 120 400 1111100 7"; render "$NOW"
+    assert_has "off:" " 19% " '$3.25/$17' "month:" " 30% " '$120/$400'; assert_lacks "day:"
+}
+# Seven-day week: 26 days left incl. today -> 283.25 / 26 = 10.9 -> "$11", 28%.
+@test "Saturday on a seven-day week: day label" {
+    cache_line "$NOW" "3.25 120 400 1111111 7"; render "$NOW"
+    assert_has "day:" " 28% " '$3.25/$11'; assert_lacks "off:"
+}
+@test "today listed as a holiday: off label, 25 days ahead" {
+    cache_line "$NOW" "3.25 120 400 1111111 5"; render "$NOW"
+    assert_has "off:" '$3.25/$11'
+}
+# Mon 09-14: 13 workdays left incl. today -> (400 - 100) / 13 = 23.08 -> "$23"; 20 / 23.08 = 86%.
+@test "a workday: today included in the count" {
+    cache_line "2026-09-14 09:30:00" "20 120 400 1111100 7"; render "2026-09-14 09:30:00"
+    assert_has "day:" " 86% " '$20/$23'
+}
+@test "budget clock: Fri 20:00 Chicago is still Friday locally" {
+    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7"; render "2026-09-04 20:00:00"
+    assert_has "day:"
+}
+@test "budget clock: the same instant is Saturday in Auckland" {
+    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7" CLAUDE_BUDGET_TZ=Pacific/Auckland
+    render "2026-09-04 20:00:00" CLAUDE_BUDGET_TZ=Pacific/Auckland
+    assert_has "off:"
+}
+@test "month past the limit: pegged bar, overage tag, no day denominator" {
+    cache_line "$NOW" "5 450 400 1111100 7"; render "$NOW"
+    assert_has "month:" "112%" '$450/$400' '+$50' "off:" "999%" '$5.00 '; assert_lacks '$5.00/'
+}
+@test "month exactly at the limit with nothing spent today: day 0%, no overage" {
+    cache_line "$NOW" "0 400 400 1111100 7"; render "$NOW"
+    assert_has "off:" " 0% " '$0.00 ' "100%"; assert_lacks '+$'
+}
+@test "old cache format (no workday mask): bars hidden" {
+    cache_line "$NOW" "3.25 120 400 7"; render "$NOW"
+    assert_lacks "day:" "off:" "month:"; assert_has "ctx:"
+}
+@test "no limit known: bars hidden" {
+    cache_line "$NOW" "3.25 120 0 1111100 7"; render "$NOW"
+    assert_lacks "day:" "month:"
+}
+@test "yesterday's cache line: hidden, not misreported" {
+    printf '%s %s 3.25 120 400 1111100 7\n' "$(at "$NOW" date -d yesterday +%F)" "$(epoch_at "$NOW")" > "$(cache_path)"
+    render "$NOW"; assert_lacks "day:" "off:" "month:"
+}
+@test "garbled cache line: hidden" {
+    printf '%s %s three 120 400 1111100 7\n' "$(at "$NOW" date +%F)" "$(epoch_at "$NOW")" > "$(cache_path)"
+    render "$NOW"; assert_lacks "day:" "off:" "month:"
+}
+@test "no cache at all: bars hidden, rest renders" {
+    render "$NOW"; assert_status 0; assert_has "Opus" "ctx:"; assert_lacks "day:" "month:"
+}
+@test "garbage on stdin: exit 0" {
+    INPUT='not json' render "$NOW"; assert_status 0
+}
+@test "empty JSON: exit 0, empty first line" {
+    INPUT='{}' render "$NOW"; assert_status 0; assert_lacks "ctx:" "Opus"
+}
+@test "last day of the month: denominator floors at 1" {
+    # Wed 2026-09-30 with today's spend 10, month 390 of 400: remaining 20 / 1 workday.
+    cache_line "2026-09-30 15:00:00" "10 390 400 1111100 7"; render "2026-09-30 15:00:00"
+    assert_has "day:" " 50% " '$10/$20'
+}
+@test "Saturday on the last day of the month: no workday ahead, still floors at 1" {
+    # Sat 2026-10-31: no workdays after it in October.
+    cache_line "2026-10-31 15:00:00" "10 390 400 1111100 12"; render "2026-10-31 15:00:00"
+    assert_has "off:" " 50% " '$10/$20'
+}

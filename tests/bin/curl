@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Fake curl for the suite: put tests/bin first on PATH. Records what it was
+# asked (argv, and the config the script pipes in through -K -), then plays
+# back a canned response in the shape the script expects from
+# `-w '\n%{http_code}'`: the body, a newline, the status code.
+#   FAKE_CURL_LOG    file the argv and received config are appended to
+#   FAKE_CURL_BODY   response body (default empty)
+#   FAKE_CURL_CODE   HTTP status (default 200)
+#   FAKE_CURL_EXIT   exit status; non-zero = transport failure, prints nothing
+#   FAKE_CURL_SLEEP  seconds to sleep before answering (to hold the lock open)
+cfg=$(cat)
+{ printf -- '--- argv: %s\n%s\n' "$*" "$cfg"; } >> "${FAKE_CURL_LOG:-/dev/null}"
+[ -n "${FAKE_CURL_SLEEP:-}" ] && sleep "$FAKE_CURL_SLEEP"
+[ "${FAKE_CURL_EXIT:-0}" = 0 ] || exit "$FAKE_CURL_EXIT"
+printf '%s\n%s' "${FAKE_CURL_BODY:-}" "${FAKE_CURL_CODE:-200}"
