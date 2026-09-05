@@ -36,6 +36,18 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
 @test "40 columns: too narrow even for the floor; floor-width bars overflow rather than shrink" {
     at_width 40; [ "${#lines[@]}" = 2 ]; assert_equal "$(bar_width "${lines[1]}" month:)" 10; [ "${#lines[1]}" -gt 35 ]
 }
+@test "30 and 20 columns: still two rows at the floor, nothing dropped" {
+    at_width 30; [ "${#lines[@]}" = 2 ]; assert_has "Opus · high" "ctx:" "off:" "month:"; assert_equal "$(bar_width "${lines[1]}" month:)" 10
+    at_width 20; [ "${#lines[@]}" = 2 ]; assert_equal "$(bar_width "${lines[1]}" month:)" 10; all_bars_equal "${lines[@]}"
+}
+@test "the age tag is part of the row's width: bars shrink to make room, the row still fits" {
+    printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
+    INPUT="$FULL" COLUMNS_OVERRIDE=120 render "$NOW" CLAUDE_BUDGET_REFRESH=900
+    [ "${#lines[@]}" = 1 ]; [[ "${lines[0]}" == *' ·10m' ]]; [ "${#lines[0]}" -le 115 ]
+    assert_equal "$(bar_width "${lines[0]}" ctx:)" 13; all_bars_equal "${lines[@]}"
+    INPUT="$FULL" COLUMNS_OVERRIDE=100 render "$NOW" CLAUDE_BUDGET_REFRESH=900
+    [ "${#lines[@]}" = 2 ]; [[ "${lines[1]}" == *' ·10m' ]]; [ "${#lines[1]}" -le 95 ]; all_bars_equal "${lines[@]}"
+}
 @test "COLUMNS unset and no tty: 80-column fallback, two rows of 18" {
     at_width 0; [ "${#lines[@]}" = 2 ]; assert_equal "$(bar_width "${lines[0]}" ctx:)" 18
 }

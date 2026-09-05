@@ -96,3 +96,26 @@ setup() { fresh_config; }
     INPUT='{"context_window":{"used_percentage":9.95e1}}' render "$NOW"; [[ "$output" == *" 100%" ]]
 }
 @test "null on stdin renders like an empty object" { INPUT='null' render "$NOW"; assert_status 0; assert_lacks "ctx:"; }
+
+# --- the staleness tag: today's figures, but no successful fetch for a while ---
+aged_cache() { printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - $1 ))" > "$(cache_path)"; }   # aged_cache SECONDS
+@test "a cache under five minutes old carries no age tag" {
+    aged_cache 299; render "$NOW" CLAUDE_BUDGET_REFRESH=600; assert_has "month:"; assert_lacks "·"
+}
+@test "at five minutes the age tag appears after the bars, in minutes" {
+    aged_cache 300; render "$NOW" CLAUDE_BUDGET_REFRESH=600; [[ "$output" == *'$120/$400 ·5m' ]]
+    aged_cache 754; render "$NOW" CLAUDE_BUDGET_REFRESH=900; [[ "$output" == *' ·12m' ]]
+}
+@test "from an hour on the tag counts hours" {
+    aged_cache 3600; render "$NOW" CLAUDE_BUDGET_REFRESH=7200; [[ "$output" == *' ·1h' ]]
+    aged_cache 11000; render "$NOW" CLAUDE_BUDGET_REFRESH=20000; [[ "$output" == *' ·3h' ]]
+}
+@test "the tag is dim and follows the overage tag when there is one" {
+    printf '2026-09-05 %s 3.25 420 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
+    render "$NOW" CLAUDE_BUDGET_REFRESH=900; [[ "$output" == *'+$20 ·10m' ]]
+    run _render_raw "$INPUT_DEFAULT" "$NOW" CLAUDE_BUDGET_REFRESH=900; assert_has $'\033[2m·10m\033[0m'
+}
+@test "no tag on the bare line when the budget bars are hidden" {
+    printf '2026-09-05 %s 3.25 120 0 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
+    render "$NOW" CLAUDE_BUDGET_REFRESH=900; assert_lacks "month:" "·"
+}

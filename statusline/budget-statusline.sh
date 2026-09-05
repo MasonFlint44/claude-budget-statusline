@@ -831,6 +831,7 @@ have_ctx=0; have_day=0; have_mo=0
 [ -n "$used_pct" ] && have_ctx=1
 [ -n "$day_pct" ]  && have_day=1
 [ -n "$mo_pct" ]   && have_mo=1
+have_budget_figures=$(( have_day | have_mo ))
 
 # Money annotations: spent/allotted beside each budget bar, plus a coral
 # overage tag on the month once past the limit.
@@ -843,6 +844,14 @@ fi
 if [ "$have_mo" = 1 ]; then
     mo_money="${money[3]}/${money[4]}"
     is_pos "$mo_over" && over_str="+${money[5]}"
+fi
+# Staleness cue: the figures are still today's, but no fetch has succeeded
+# for a while (the token expired, the endpoint is down, no network). After
+# STALE_AFTER seconds a dim age tag follows the bars: ·12m, ·3h.
+STALE_AFTER=300
+stale_str=""
+if [ "$have_budget_figures" = 1 ] && is_int "$cache_age" && [ "$cache_age" -ge "$STALE_AFTER" ]; then
+    if [ "$cache_age" -lt 3600 ]; then stale_str="·$(( cache_age / 60 ))m"; else stale_str="·$(( cache_age / 3600 ))h"; fi
 fi
 
 # --- Per-piece visible "chrome" widths (everything that isn't bar blocks) ---
@@ -876,6 +885,8 @@ if [ "$have_day" = 1 ] || [ "$have_mo" = 1 ]; then
         [ "$have_day" = 1 ] && budget_chrome=$(( budget_chrome + 1 ))  # space between day and month
         budget_chrome=$(( budget_chrome + mo_chrome ))
     fi
+    # "·" is one column: the tag's width is its character count.
+    [ -n "$stale_str" ] && budget_chrome=$(( budget_chrome + 1 + ${#stale_str} ))
 fi
 
 # Shared bar width for a row: split the column budget evenly across its bars,
@@ -915,6 +926,7 @@ build_budget() {  # $1 = day width, $2 = mo width
         # shellcheck disable=SC2154  # coral is set by ramp_color's printf -v
         [ -n "$over_str" ] && { ramp_color 100 coral; s="$s ${coral}${over_str}${CLR_RESET}"; }
     fi
+    [ -n "$s" ] && [ -n "$stale_str" ] && s="$s ${CLR_DIM}${stale_str}${CLR_RESET}"
     printf '%s' "${s# }"
 }
 # Render a "+A/-R" pair with zero sides suppressed (nothing at all when both
