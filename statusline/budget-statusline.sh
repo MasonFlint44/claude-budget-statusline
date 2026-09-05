@@ -357,7 +357,9 @@ count_workdays() {
 case "${1:-}" in --calendar|'') ;; *) echo "usage: $0 [--calendar [YYYY]]  (no flag: render the statusline from stdin)" >&2; exit 2 ;; esac
 if [ "${1:-}" = "--calendar" ]; then
     case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) [ $# -le 2 ] ;; *) false ;; esac || { echo "usage: $0 --calendar [YYYY]" >&2; exit 2; }
-    bstamp '%Y %m %e %u %B' stamp; read -r cy cm cdom cdow cmonth <<< "$stamp"
+    bstamp '%Y %m %e %u %B' stamp
+    # shellcheck disable=SC2154  # stamp is set by bstamp's printf -v
+    read -r cy cm cdom cdow cmonth <<< "$stamp"
     y=$((10#${2:-$cy}))
     if [ -z "$CALENDAR" ]; then echo "calendar: disabled (CLAUDE_BUDGET_CALENDAR=$CLAUDE_BUDGET_CALENDAR): workdays mon-fri, no holidays"
     elif [ ! -r "$CALENDAR" ]; then echo "calendar: no file at $CALENDAR: workdays mon-fri, no holidays"
@@ -473,9 +475,9 @@ round() {   # VALUE VAR
     # Anything but plain digits and a dot (an exponent form such as 1e-07,
     # a sign) goes through awk, which parses every numeric spelling.
     case "$1" in ''|*[!0-9.]*|*.*.*) printf -v "$2" '%s' "$(awk -v v="${1:-0}" 'BEGIN{printf "%d", int(v + 0.5)}')"; return ;; esac
-    local i="${1%%.*}" f=""
-    [ "$i" != "$1" ] && f="${1#*.}"
-    case "$f" in [5-9]*) printf -v "$2" '%d' $(( 10#${i:-0} + 1 )) ;; *) printf -v "$2" '%d' $(( 10#${i:-0} )) ;; esac
+    local i="${1%%.*}" frac=""
+    [ "$i" != "$1" ] && frac="${1#*.}"
+    case "$frac" in [5-9]*) printf -v "$2" '%d' $(( 10#${i:-0} + 1 )) ;; *) printf -v "$2" '%d' $(( 10#${i:-0} )) ;; esac
 }
 bar() {
     local pct="${1:-0}"
@@ -786,7 +788,8 @@ build_model() {
 }
 build_ctx() {   # $1 = bar width
     [ "$have_ctx" = 1 ] || return
-    local s="ctx:$(bar "$used_pct" "$1")"
+    local s
+    s="ctx:$(bar "$used_pct" "$1")"
     [ -n "$session_money" ] && s="$s ${CLR_DIM}${session_money}${CLR_RESET}"
     printf '%s' "$s"
 }
@@ -799,6 +802,7 @@ build_budget() {  # $1 = day width, $2 = mo width
     if [ "$have_mo" = 1 ]; then
         s="$s month:$(bar "$mo_pct" "$2")"
         [ -n "$mo_money" ] && s="$s ${CLR_DIM}${mo_money}${CLR_RESET}"
+        # shellcheck disable=SC2154  # coral is set by ramp_color's printf -v
         [ -n "$over_str" ] && { ramp_color 100 coral; s="$s ${coral}${over_str}${CLR_RESET}"; }
     fi
     printf '%s' "${s# }"

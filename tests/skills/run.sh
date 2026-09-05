@@ -26,7 +26,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; REPO="$(cd "$HERE/../.." && pwd)"
 MODEL=sonnet; RUNS=1
 while getopts m:n: o; do case $o in m) MODEL=$OPTARG ;; n) RUNS=$OPTARG ;; *) exit 2 ;; esac; done; shift $((OPTIND - 1))
-CASES=("$@"); [ ${#CASES[@]} -gt 0 ] || CASES=($(cd "$HERE/cases" && ls -d */ | tr -d /))
+CASES=("$@"); [ ${#CASES[@]} -gt 0 ] || mapfile -t CASES < <(cd "$HERE/cases" && find . -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 REAL_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 STAMP=$(date +%Y%m%d-%H%M%S); RES="$HERE/results/$STAMP"; mkdir -p "$RES"
 TOOLS="Skill,Bash,Read,Edit,Write,Glob,Grep,MultiEdit"
@@ -35,9 +35,9 @@ TOOLS="Skill,Bash,Read,Edit,Write,Glob,Grep,MultiEdit"
 fail=0
 expect() { [ "$1" = "$2" ] || { echo "    expected: $2"; echo "    got:      $1"; fail=$((fail + 1)); }; }   # expect ACTUAL EXPECTED
 expect_file() {  # expect_file FILE REGEX [MESSAGE]: a line matching REGEX exists in FILE
-    grep -Eq -- "$2" "$1" 2>/dev/null || { echo "    ${3:-no line matching /$2/ in ${1#$CFG/}}"; fail=$((fail + 1)); }
+    grep -Eq -- "$2" "$1" 2>/dev/null || { echo "    ${3:-no line matching /$2/ in ${1#"$CFG"/}}"; fail=$((fail + 1)); }
 }
-expect_no_file_match() { grep -Eq -- "$2" "$1" 2>/dev/null && { echo "    ${3:-unexpected /$2/ in ${1#$CFG/}}"; fail=$((fail + 1)); }; return 0; }
+expect_no_file_match() { grep -Eq -- "$2" "$1" 2>/dev/null && { echo "    ${3:-unexpected /$2/ in ${1#"$CFG"/}}"; fail=$((fail + 1)); }; return 0; }
 expect_out() { case "$OUT" in *"$1"*) ;; *) echo "    output lacks: $1"; fail=$((fail + 1)) ;; esac; }
 expect_no_warnings() {  # the installed calendar parses clean
     local err; err=$(bash "$CFG/statusline/budget-statusline.sh" --calendar 2>&1 >/dev/null)
@@ -61,7 +61,7 @@ for case in "${CASES[@]}"; do
         printf '{"hasCompletedOnboarding":true}\n' > "$CFG/.claude.json"
         [ -n "${ANTHROPIC_API_KEY:-}" ] || cp "$REAL_CFG/.credentials.json" "$CFG/.credentials.json"
         fail=0
-        # shellcheck disable=SC1090
+        # shellcheck disable=SC1090,SC1091
         . "$CDIR/setup.sh"
         RESULT="$RES/$case-$run.json"
         ( cd "$WORK/cwd" && CLAUDE_CONFIG_DIR="$CFG" claude -p "$(cat "$CDIR/prompt")" --plugin-dir "$REPO" --model "$MODEL" \
@@ -75,7 +75,7 @@ for case in "${CASES[@]}"; do
         OUT=$(jq -r '.result // ""' "$RESULT" 2>/dev/null); cost=$(jq -r '(.total_cost_usd // 0) * 1000 | round / 1000' "$RESULT" 2>/dev/null)
         turns=$(jq -r '.num_turns // "?"' "$RESULT" 2>/dev/null)
         [ "$rc" = 0 ] || { echo "    claude exited $rc: $(head -c 300 "$RES/$case-$run.stderr")"; fail=$((fail + 1)); }
-        # shellcheck disable=SC1090
+        # shellcheck disable=SC1090,SC1091
         . "$CDIR/check.sh"
         printf '%s\n' "$OUT" > "$RES/$case-$run.out"
         if [ "$fail" = 0 ]; then passed=$((passed + 1)); verdict=PASS; else verdict=FAIL; fi
@@ -84,5 +84,5 @@ for case in "${CASES[@]}"; do
         rm -rf "$WORK"
     done
 done
-printf '\n%s/%s passed, model %s, $%s total; transcripts in %s\n' "$passed" "$total" "$MODEL" "$cost_all" "${RES#$REPO/}"
+printf '\n%s/%s passed, model %s, $%s total; transcripts in %s\n' "$passed" "$total" "$MODEL" "$cost_all" "${RES#"$REPO"/}"
 [ "$passed" = "$total" ]
