@@ -186,6 +186,23 @@ and nothing is installed system-wide. One file per area:
 
 CI runs the suite on every push.
 
+The two skills are prose for the model, so they are checked differently:
+`tests/skills/run.sh` runs each case under `tests/skills/cases/` through
+headless Claude (`claude -p`) with this plugin loaded and a throwaway config
+dir, then checks the files the skill left behind (the calendar line landed
+in the file the `statusLine` command names, the plugin's own copy is
+untouched, an edited calendar survives an update, settings point at the
+stable copy). Every run is a paid model call, so it is run by hand:
+
+```
+tests/skills/run.sh                 # all cases, sonnet
+tests/skills/run.sh -m fable -n 3   # another model, three runs per case
+```
+
+It copies your credentials file into the throwaway dir for the CLI and
+copies it back if the token was refreshed; with `ANTHROPIC_API_KEY` set it
+leaves the credentials alone. Transcripts go to `tests/skills/results/`.
+
 ## License
 
 MIT — see `LICENSE`.
