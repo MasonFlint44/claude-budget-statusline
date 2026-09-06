@@ -1,6 +1,6 @@
 ---
 name: install
-description: Install or update the budget statusline — copies the statusline files to a stable location under ~/.claude and wires statusLine in settings.json. Use when the user asks to install, set up, enable or update the budget statusline, says the statusline is not showing at all, or has just updated the plugin and wants the installed copy refreshed.
+description: Install or update the budget statusline — copies the statusline files to a stable location under ~/.claude and wires statusLine in settings.json. Use when the user asks to install, set up, enable or update the budget statusline, says the statusline is not showing at all, has just updated the plugin and wants the installed copy refreshed, or wants the statusLine command to run under a different bash (Homebrew's 4.4+ on macOS instead of the system 3.2).
 ---
 
 # Install the budget statusline

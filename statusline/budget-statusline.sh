@@ -42,7 +42,7 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.6.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.6.1   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 # Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
 # thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
 # 3.2) gets one clear line instead of a syntax error further down. Every

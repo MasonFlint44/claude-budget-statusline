@@ -65,14 +65,14 @@
   },
   {
     "query": "the day bar says 'off:' today but it's a workday, why",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "change the timezone the budget statusline uses to UTC",
     "should_trigger": false
   },
   {
-    "query": "how many working days are between today and the end of the quarter",
+    "query": "how many business days does the US stock market have in December",
     "should_trigger": false
   },
   {

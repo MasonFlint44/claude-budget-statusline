@@ -4,6 +4,13 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.6.1 — 2026-09-06
+
+- Skill descriptions tuned against the trigger evals on sonnet (every skill
+  20/20 at three runs per query): the install skill mentions switching the
+  statusLine command to another bash; the doctor and display skills say
+  which of them owns a hidden element versus a blank bar.
+
 ## 2.6.0 — 2026-09-06
 
 - **Skills renamed** to `/budget-statusline:install`, `:calendar`, `:display`

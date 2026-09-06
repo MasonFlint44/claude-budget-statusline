@@ -1,6 +1,6 @@
 ---
 name: display
-description: Choose which elements the budget statusline shows — hide or bring back the pace tick, the cache cue, the effort level, the budget bars, the repository row or any of its parts, list what is currently displayed or hidden, explain why an element disappeared, or reset the display to defaults. Use when the user says "hide the pace tick", "turn the cache countdown off", "I don't want the month bar", "show the session churn again", "what is hidden", "what else can the statusline show", "why did the cost disappear", "reset the statusline display".
+description: Choose which elements the budget statusline shows — hide or bring back the pace tick, the cache cue, the effort level, the budget bars, the repository row or any of its parts, list what is currently displayed or hidden, explain why an element disappeared, or reset the display to defaults. Use when the user says "hide the pace tick", "turn the cache countdown off", "I don't want the month bar", "show the session churn again", "what is hidden", "what else can the statusline show", "why did the cost disappear", "reset the statusline display". Bars that are blank or stale rather than hidden are the doctor skill's job.
 ---
 
 # Choose what the budget statusline shows

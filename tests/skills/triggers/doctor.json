@@ -52,7 +52,7 @@
     "should_trigger": false
   },
   {
-    "query": "the pins picker shows no cost for this session, what's wrong",
+    "query": "install ccusage so I can see what each claude session cost",
     "should_trigger": false
   },
   {
@@ -68,7 +68,7 @@
     "should_trigger": false
   },
   {
-    "query": "the /usage page in claude code shows a different number than my terminal, is /usage broken",
+    "query": "is the /usage page in claude code showing billed dollars or tokens?",
     "should_trigger": false
   },
   {

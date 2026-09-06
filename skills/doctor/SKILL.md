@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Diagnose the budget statusline — why the day and month bars are blank or stale, whether the credentials, usage endpoint, limit and cache are all in order. Use when the user says the budget bars are missing, empty, hidden, stuck, stale, wrong, or asks whether the statusline is working.
+description: Diagnose the budget statusline — why the day and month bars are blank or stale, whether the credentials, usage endpoint, limit and cache are all in order. Use when the user says the budget bars are missing, empty, stuck, stale, wrong, or asks whether the statusline is working. An element the user hid on purpose through the display file is the display skill's job.
 ---
 
 # Diagnose the budget statusline
