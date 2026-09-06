@@ -11,7 +11,7 @@ The budget bars hide whenever any step of the usage refresh fails, and the statu
 
 1. **Find the installed script.** Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_MONTHLY_LIMIT=...` or `CLAUDE_BUDGET_TZ=...` in front of it, and names the interpreter (`bash`, or on macOS an absolute path such as `/opt/homebrew/bin/bash`): use the same one. If there is no `statusLine` entry, or it names another script, the budget statusline is not installed: say so and point the user at `/budget-statusline:install`.
 
-2. **Run the doctor with exactly those knobs, that interpreter and that path**, and show the user its output verbatim:
+2. **Run the doctor with exactly those knobs, that interpreter and that path**, and quote its output as printed, every line through the final `bars:` verdict, rather than summarizing it: the user needs the exact lines to match against the table below and to report if something is off.
    ```bash
    [KNOBS] [BASH] "$CFG/statusline/budget-statusline.sh" --doctor
    ```
@@ -43,3 +43,4 @@ The budget bars hide whenever any step of the usage refresh fails, and the statu
 - Do not print, copy or echo the token; the doctor never shows it and neither should you.
 - Do not edit the plugin's own copy of the script; run the installed one.
 - Do not guess at the cause when the doctor has named one; quote its line.
+- Do not summarize the doctor's block in place of quoting it. Its lines, through the `bars:` verdict, are what the user compares against the table and pastes into an issue.

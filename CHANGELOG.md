@@ -4,6 +4,12 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.6.3 — 2026-09-06
+
+- Doctor skill quotes the doctor's block through its `bars:` verdict instead
+  of summarizing it (the headless doctor case dropped the verdict one run in
+  two on sonnet; four of four after).
+
 ## 2.6.2 — 2026-09-06
 
 - Doctor skill: documents the doctor's third ending, `bars: hidden by
