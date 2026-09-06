@@ -104,3 +104,8 @@ loc() {
         env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_REPO_LINE=on bash "$SL"
     [[ "$output" == *"/project ⎇  main" ]] || { echo "got: $output"; false; }
 }
+@test "no origin/HEAD and no main: master is the default branch" {
+    git remote set-head origin -d 2>/dev/null; git branch -m main master
+    git checkout -qb feature; printf 'f1\n' > f.txt; git add f.txt; git commit -qm feature
+    loc; assert_has "· vs master +1"
+}

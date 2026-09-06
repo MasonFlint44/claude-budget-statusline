@@ -48,6 +48,15 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
     INPUT="$FULL" COLUMNS_OVERRIDE=100 render "$NOW" CLAUDE_BUDGET_REFRESH=900
     [ "${#lines[@]}" = 2 ]; [[ "${lines[1]}" == *' ·10m' ]]; [ "${#lines[1]}" -le 95 ]; all_bars_equal "${lines[@]}"
 }
+@test "two rows without a ctx bar: the model alone on row 1, the budget row sets the width" {
+    INPUT='{"model":{"display_name":"Opus"}}' COLUMNS_OVERRIDE=40 render "$NOW"
+    [ "${#lines[@]}" = 2 ]; assert_equal "${lines[0]}" "Opus"; [[ "${lines[1]}" == off:* ]]; all_bars_equal "${lines[@]}"
+}
+@test "too narrow with only a ctx bar: it stays beside the model (row 1 owns it) at the floor width" {
+    rm -f "$(cache_path)"
+    INPUT='{"model":{"display_name":"Opus"},"context_window":{"used_percentage":50}}' COLUMNS_OVERRIDE=24 render "$NOW"
+    [ "${#lines[@]}" = 1 ]; assert_equal "${lines[0]}" "Opus | ctx:█████░░░░░ 50%"
+}
 @test "COLUMNS unset and no tty: 80-column fallback, two rows of 18" {
     at_width 0; [ "${#lines[@]}" = 2 ]; assert_equal "$(bar_width "${lines[0]}" ctx:)" 18
 }

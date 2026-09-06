@@ -4,6 +4,16 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## Unreleased
+
+- `--doctor` reports `cache: could not write` when the cache directory is not
+  writable, instead of reading back an older line as "refreshed just now".
+- Tests: a line-trace audit of the suite (207 tests) closed the last untested
+  branches: an unknown day in an `observe DOW=MODE` override, the `master`
+  default-branch fallback, two-row layouts without a ctx bar, and the
+  unwritable cache directory above.
+- README: the day-start baseline is per machine.
+
 ## 2.2.4 — 2026-09-05
 
 - The bash version guard now points at `brew install bash` and

@@ -180,7 +180,10 @@ of the day. The day rolls at **local midnight** unless `CLAUDE_BUDGET_TZ` says
 otherwise; the month figure is server-side and rolls at 00:00 UTC on the last
 day. Cache and baseline live in
 `~/.claude/cache/statusline/` (inside the config dir so a devcontainer that
-mounts `~/.claude` carries them along).
+mounts `~/.claude` carries them along). The baseline is per machine: the month
+figure covers every machine on the account, but a second machine that first
+sees the day at noon takes the morning's spend elsewhere into its baseline and
+shows a smaller day figure. The month bar is the same everywhere.
 
 ## Knobs
 

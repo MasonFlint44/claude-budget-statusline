@@ -95,3 +95,9 @@ SH
 @test "the tools line names bash and the optional git" {
     doctor; assert_has "tools:        bash $BASH_VERSION, jq, curl, awk, readlink"
 }
+@test "an unwritable cache directory: cache: could not write, exit 1, even with an old line in place" {
+    [ "$(id -u)" = 0 ] && skip "root can write anywhere"
+    printf '2026-09-05 1 0 100 400 1111100 7\n' > "$(cache_path)"; chmod 555 "$CFG/cache/statusline"
+    doctor; chmod 755 "$CFG/cache/statusline"; assert_status 1
+    assert_has "HTTP 200" "cache:        could not write" "bars:         hidden"; assert_lacks "refreshed just now"
+}

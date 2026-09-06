@@ -11,6 +11,7 @@ calendar: line 4: no workdays named, line ignored
 calendar: line 5: unknown day range 'mon-foo'
 calendar: line 5: no workdays named, line ignored
 calendar: line 6: unknown observe option 'bogus'
+calendar: line 6: unknown day in 'xyz=none'
 calendar: observe mon=... has no effect: Mon is a workday
 calendar: observe wed=... has no effect: Wed is a workday
 calendar: skipping line 7 (no such weekday in 2026): nth 5 fri 02 no fifth friday

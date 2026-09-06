@@ -764,9 +764,11 @@ if [ "${1:-}" = "--doctor" ]; then
     elif is_pos "$U_LIMIT"; then doc "limit:" "\$$U_LIMIT from the response"
     else fail "limit:" "none: the response carries no limit and CLAUDE_BUDGET_MONTHLY_LIMIT is unset; set one to see the bars"
     fi
-    store_usage "$U_MONTH" "$U_LIMIT"
+    # store_usage fails when the cache dir is not writable; a leftover cache
+    # line from an earlier run would otherwise read back as "refreshed just now".
+    store_usage "$U_MONTH" "$U_LIMIT" || fail "cache:" "could not write $CACHE_FILE (is $CACHE_DIR writable?)"
     read -r c_date c_stamp c_day c_mo c_lim c_mask c_hol < "$CACHE_FILE" 2>/dev/null \
-        || fail "cache:" "could not write $CACHE_FILE"
+        || fail "cache:" "could not read back $CACHE_FILE"
     doc "cache:" "$CACHE_FILE: today \$$c_day, month \$$c_mo, limit \$$c_lim, refreshed just now"
     doc "bars:" "will show"
     exit 0
