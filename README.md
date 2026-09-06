@@ -369,6 +369,19 @@ which a headless session cannot answer (the write to `settings.json` always
 asks); that applies to the test runner only, never to the installed
 statusline or the skills in normal use.
 
+Whether the skills *trigger* on the right requests is a separate question, checked with the
+[skill-creator](https://github.com/anthropics/claude-plugins-official) plugin's description
+evaluator over twenty queries per skill in `tests/skills/triggers/` (ten that should trigger,
+ten near-misses that should not):
+
+```
+tests/skills/triggers.sh -e [-m MODEL] [-r RUNS] [SKILL...]   # score the current descriptions
+tests/skills/triggers.sh [-m MODEL] [SKILL...]                # optimizer: proposes a better description
+```
+
+The optimizer never edits `SKILL.md`; it prints the best description it found, scored on a
+held-out split, for you to paste in. `-e -m haiku -r 1` is a two-minute smoke test per skill.
+
 ## License
 
 MIT — see `LICENSE`. Version history in `CHANGELOG.md`.

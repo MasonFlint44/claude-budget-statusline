@@ -1,0 +1,82 @@
+[
+  {
+    "query": "hide the pace tick on the month bar",
+    "should_trigger": true
+  },
+  {
+    "query": "turn the cache countdown off in my statusline",
+    "should_trigger": true
+  },
+  {
+    "query": "I don't want the month bar, just the daily one",
+    "should_trigger": true
+  },
+  {
+    "query": "show the session churn again, I hid it a while ago",
+    "should_trigger": true
+  },
+  {
+    "query": "what's hidden in my statusline right now",
+    "should_trigger": true
+  },
+  {
+    "query": "what else can the budget statusline show that I'm not seeing",
+    "should_trigger": true
+  },
+  {
+    "query": "why did the cost disappear from my statusline",
+    "should_trigger": true
+  },
+  {
+    "query": "reset the statusline display to defaults",
+    "should_trigger": true
+  },
+  {
+    "query": "drop the effort level from the status line, it's noise",
+    "should_trigger": true
+  },
+  {
+    "query": "hide the git branch part of the repository row but keep the path",
+    "should_trigger": true
+  },
+  {
+    "query": "install the budget statusline",
+    "should_trigger": false
+  },
+  {
+    "query": "my budget bars are blank this morning",
+    "should_trigger": false
+  },
+  {
+    "query": "add PTO next week to my budget calendar",
+    "should_trigger": false
+  },
+  {
+    "query": "hide the sidebar in vscode",
+    "should_trigger": false
+  },
+  {
+    "query": "change my claude code status line colours to match my terminal",
+    "should_trigger": false
+  },
+  {
+    "query": "how do I turn off the claude code away-summary",
+    "should_trigger": false
+  },
+  {
+    "query": "the cost line in the pins picker is missing, why",
+    "should_trigger": false
+  },
+  {
+    "query": "make my terminal font bigger",
+    "should_trigger": false
+  },
+  {
+    "query": "make the claude code status line refresh more often than once a minute",
+    "should_trigger": false
+  },
+  {
+    "query": "turn off the statusline entirely and go back to the default",
+    "should_trigger": false
+  }
+]

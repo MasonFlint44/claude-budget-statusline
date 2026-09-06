@@ -12,6 +12,6 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q bats libfaketime jq locales shellcheck
       - name: shellcheck
-        run: shellcheck statusline/budget-statusline.sh tests/skills/run.sh tests/bin/curl
+        run: shellcheck statusline/budget-statusline.sh tests/skills/run.sh tests/skills/triggers.sh tests/bin/curl
       - name: Run the suite (DOCKER=1 adds the bash 3.2 / 4.3 / 4.4 checks)
         run: DOCKER=1 bats --print-output-on-failure tests/

@@ -1,0 +1,82 @@
+[
+  {
+    "query": "I'm off next week, add it to my budget calendar",
+    "should_trigger": true
+  },
+  {
+    "query": "add PTO for Sept 14-18",
+    "should_trigger": true
+  },
+  {
+    "query": "we work Sunday to Thursday here, update the work week the budget uses",
+    "should_trigger": true
+  },
+  {
+    "query": "I have Fridays off now, change my workdays",
+    "should_trigger": true
+  },
+  {
+    "query": "add Thanksgiving and the day after as holidays",
+    "should_trigger": true
+  },
+  {
+    "query": "remove the Columbus Day holiday, we work that day",
+    "should_trigger": true
+  },
+  {
+    "query": "when a holiday falls on a saturday we observe it on friday, set that up",
+    "should_trigger": true
+  },
+  {
+    "query": "show my budget calendar",
+    "should_trigger": true
+  },
+  {
+    "query": "how many workdays are left this month according to the statusline",
+    "should_trigger": true
+  },
+  {
+    "query": "the office is closed Dec 24, add a one-off closure to the budget calendar",
+    "should_trigger": true
+  },
+  {
+    "query": "install the budget statusline",
+    "should_trigger": false
+  },
+  {
+    "query": "my budget bars are blank, what's wrong",
+    "should_trigger": false
+  },
+  {
+    "query": "hide the pace tick on the month bar",
+    "should_trigger": false
+  },
+  {
+    "query": "put a meeting on my outlook calendar for tomorrow at 3",
+    "should_trigger": false
+  },
+  {
+    "query": "what US federal holidays are there in November",
+    "should_trigger": false
+  },
+  {
+    "query": "add a holiday reminder to my google calendar",
+    "should_trigger": false
+  },
+  {
+    "query": "the day bar says 'off:' today but it's a workday, why",
+    "should_trigger": false
+  },
+  {
+    "query": "change the timezone the budget statusline uses to UTC",
+    "should_trigger": false
+  },
+  {
+    "query": "how many working days are between today and the end of the quarter",
+    "should_trigger": false
+  },
+  {
+    "query": "block out next week on my team's shared calendar for PTO",
+    "should_trigger": false
+  }
+]

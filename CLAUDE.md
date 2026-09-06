@@ -8,7 +8,7 @@ the status line, plus four skills under `skills/` that install and configure it.
 
 ```
 bats tests/                        # about 30 s, no network
-shellcheck statusline/budget-statusline.sh tests/skills/run.sh tests/bin/curl
+shellcheck statusline/budget-statusline.sh tests/skills/run.sh tests/skills/triggers.sh tests/bin/curl
 UPDATE=1 bats tests/calendar.bats  # only when a golden listing should change; review the diff
 DOCKER=1 bats tests/compat.bats    # bash 3.2 / 4.3 / 4.4 images; CI runs this
 ```
@@ -24,6 +24,8 @@ DOCKER=1 bats tests/compat.bats    # bash 3.2 / 4.3 / 4.4 images; CI runs this
   line instead of a parse error. `compat.bats` checks this.
 - `tests/skills/run.sh` runs the skills through `claude -p` for real money and
   copies your credentials into a throwaway config dir; run it by hand, never in CI.
+  So does `tests/skills/triggers.sh`, which scores the skill descriptions' triggering
+  with the skill-creator plugin's evaluator; run it after changing a description.
 - `docs/preview.py` regenerates the README screenshot from the script itself
   (python3, git, libfaketime). Rerun it when the rendered line changes and
   commit the SVG with the change.

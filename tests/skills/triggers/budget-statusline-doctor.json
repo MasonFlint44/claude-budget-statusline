@@ -1,0 +1,82 @@
+[
+  {
+    "query": "my budget bars are blank this morning, what's wrong",
+    "should_trigger": true
+  },
+  {
+    "query": "the day and month bars haven't moved since yesterday, are they stuck?",
+    "should_trigger": true
+  },
+  {
+    "query": "is the budget statusline actually working? the numbers look stale",
+    "should_trigger": true
+  },
+  {
+    "query": "the statusline shows 'stale' next to the bars, what does that mean and how do I fix it",
+    "should_trigger": true
+  },
+  {
+    "query": "run the budget statusline doctor and explain what it says",
+    "should_trigger": true
+  },
+  {
+    "query": "budget bars are missing from my status line but the model and context are there",
+    "should_trigger": true
+  },
+  {
+    "query": "the spend bars show $0 all day even though I've been using claude a lot",
+    "should_trigger": true
+  },
+  {
+    "query": "my statusline says credentials error or something like that, can you check",
+    "should_trigger": true
+  },
+  {
+    "query": "the monthly budget bar is wrong, it says 40% but /usage shows 60%",
+    "should_trigger": true
+  },
+  {
+    "query": "check whether the usage endpoint and cache the statusline uses are okay",
+    "should_trigger": true
+  },
+  {
+    "query": "install the budget statusline for me",
+    "should_trigger": false
+  },
+  {
+    "query": "hide the month bar, I only want the daily one",
+    "should_trigger": false
+  },
+  {
+    "query": "add PTO for the 14th through 18th to my budget calendar",
+    "should_trigger": false
+  },
+  {
+    "query": "the pins picker shows no cost for this session, what's wrong",
+    "should_trigger": false
+  },
+  {
+    "query": "why did my claude code session get slow today",
+    "should_trigger": false
+  },
+  {
+    "query": "how does the daily allowance in the budget statusline get calculated",
+    "should_trigger": false
+  },
+  {
+    "query": "show me my budget calendar for this month",
+    "should_trigger": false
+  },
+  {
+    "query": "the /usage page in claude code shows a different number than my terminal, is /usage broken",
+    "should_trigger": false
+  },
+  {
+    "query": "my git branch isn't showing in the status line since I moved to a worktree",
+    "should_trigger": false
+  },
+  {
+    "query": "why did the cost element disappear from my statusline after I edited the display file",
+    "should_trigger": false
+  }
+]

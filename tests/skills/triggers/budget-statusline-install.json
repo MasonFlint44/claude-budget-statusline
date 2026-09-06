@@ -1,0 +1,82 @@
+[
+  {
+    "query": "install the budget statusline, I just added the plugin from claude-toolbox",
+    "should_trigger": true
+  },
+  {
+    "query": "set up the spend budget bars in my status line",
+    "should_trigger": true
+  },
+  {
+    "query": "I updated the budget-statusline plugin to 2.5, refresh my installed copy",
+    "should_trigger": true
+  },
+  {
+    "query": "the budget statusline isn't showing at all, just the default status line. can you get it installed properly",
+    "should_trigger": true
+  },
+  {
+    "query": "enable the budget statusline on my mac, I have homebrew bash",
+    "should_trigger": true
+  },
+  {
+    "query": "wire the budget statusline into my settings.json statusLine",
+    "should_trigger": true
+  },
+  {
+    "query": "reinstall the budget statusline, I think my copy under ~/.claude/statusline is stale",
+    "should_trigger": true
+  },
+  {
+    "query": "new work laptop, get the budget statusline going. plugin is already installed",
+    "should_trigger": true
+  },
+  {
+    "query": "switch my budget statusline over to the homebrew bash instead of the system one",
+    "should_trigger": true
+  },
+  {
+    "query": "put the daily/monthly budget bars in my claude code status bar",
+    "should_trigger": true
+  },
+  {
+    "query": "my budget bars are blank this morning, what's wrong",
+    "should_trigger": false
+  },
+  {
+    "query": "hide the pace tick on the month bar",
+    "should_trigger": false
+  },
+  {
+    "query": "I'm off next Thursday and Friday, add it to my budget calendar",
+    "should_trigger": false
+  },
+  {
+    "query": "install the pins plugin's pin command",
+    "should_trigger": false
+  },
+  {
+    "query": "change the colours in my claude code status line to match my terminal theme",
+    "should_trigger": false
+  },
+  {
+    "query": "write me a custom statusline script that shows the git branch and the model",
+    "should_trigger": false
+  },
+  {
+    "query": "install ccusage so I can see per-session cost",
+    "should_trigger": false
+  },
+  {
+    "query": "update claude code to the latest version",
+    "should_trigger": false
+  },
+  {
+    "query": "install jq on this box, the statusline doctor says it's missing",
+    "should_trigger": false
+  },
+  {
+    "query": "why does the month bar say my limit is $500 when finance set it to $800",
+    "should_trigger": false
+  }
+]
