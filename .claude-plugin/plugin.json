@@ -1,7 +1,7 @@
 {
   "name": "budget-statusline",
   "displayName": "Budget Statusline",
-  "version": "2.2.5",
+  "version": "2.3.0",
   "description": "Claude Code statusline with daily + monthly spend budget bars read from the same numbers the /usage page shows. Install with /budget-statusline-install; edit the work week, holidays and PTO with /budget-statusline-calendar.",
   "author": { "name": "Mason Flint" },
   "license": "MIT",

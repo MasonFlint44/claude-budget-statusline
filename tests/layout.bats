@@ -6,7 +6,7 @@ load helpers
 setup() { fresh_config; cache_line "$NOW" "3.25 120 400 1111100 7"; }
 FULL='{"model":{"display_name":"Opus"},"effort":{"level":"high"},"context_window":{"used_percentage":42.6},"cost":{"total_cost_usd":1234.5},"workspace":{"current_dir":"/tmp"}}'
 # bar_width LINE LABEL -> number of block characters in the bar after LABEL
-bar_width() { [[ "$1" =~ $2([█░]+) ]] && printf '%s' "${#BASH_REMATCH[1]}"; }
+bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}"; }
 # all_bars_equal LINE... -> every bar on the given rows has the same width
 all_bars_equal() {
     local w="" row lbl

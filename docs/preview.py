@@ -13,9 +13,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SCRIPT = os.path.join(REPO, "statusline", "budget-statusline.sh")
 WHEN, TZ, COLS = "2026-09-04 14:30:00", "America/Chicago", 120
+# The prompt cache is warm with 42 minutes left (its expiry is relative to WHEN).
 INPUT = ('{"model":{"display_name":"Opus"},"effort":{"level":"high"},'
-         '"context_window":{"used_percentage":42.6},"cost":{"total_cost_usd":3.72},'
+         '"context_window":{"used_percentage":42.6},'
          '"cost":{"total_cost_usd":3.72,"total_lines_added":118,"total_lines_removed":27},'
+         '"prompt_cache":{"caching_observed":true,"warm":true,"ttl":"1h","expires_at":%d},'
          '"workspace":{"current_dir":"%s"}}')
 # cache: <date> <stamp> <day$> <month$> <limit$> <mask> <holiday doms>
 CACHE = "2026-09-04 {stamp} 9.40 143.20 400 1111100 7\n"
@@ -45,7 +47,7 @@ def main():
     open(os.path.join(cfg, "cache", "statusline", "budget-usage"), "w").write(CACHE.format(stamp=stamp))
     env = {**os.environ, "TZ": TZ, "HOME": tmp, "CLAUDE_CONFIG_DIR": cfg, "COLUMNS": str(COLS),
            "CLAUDE_BUDGET_REFRESH": "3600", "CLAUDE_BUDGET_CALENDAR": os.path.join(REPO, "statusline", "config", "calendar.conf")}
-    out = subprocess.run(["faketime", WHEN, "bash", SCRIPT], input=INPUT % work, capture_output=True, text=True, env=env, check=True).stdout
+    out = subprocess.run(["faketime", WHEN, "bash", SCRIPT], input=INPUT % (int(stamp) + 2500, work), capture_output=True, text=True, env=env, check=True).stdout
     shutil.rmtree(tmp)
     open(os.path.join(HERE, "preview.txt"), "w").write(re.sub(r"\x1b\[[0-9;]*m", "", out) + "\n")
     open(os.path.join(HERE, "preview.svg"), "w").write(to_svg(out))

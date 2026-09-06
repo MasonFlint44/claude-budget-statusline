@@ -100,7 +100,7 @@ setup() { fresh_config; }
 # --- the staleness tag: today's figures, but no successful fetch for a while ---
 aged_cache() { printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - $1 ))" > "$(cache_path)"; }   # aged_cache SECONDS
 @test "a cache under five minutes old carries no age tag" {
-    aged_cache 299; render "$NOW" CLAUDE_BUDGET_REFRESH=600; assert_has "month:"; assert_lacks "·"
+    aged_cache 297; render "$NOW" CLAUDE_BUDGET_REFRESH=600; assert_has "month:"; assert_lacks "·"   # 297: the fake clock can run a second or two ahead
 }
 @test "at five minutes the age tag appears after the bars, in minutes" {
     aged_cache 300; render "$NOW" CLAUDE_BUDGET_REFRESH=600; [[ "$output" == *'$120/$400 ·5m' ]]

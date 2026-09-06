@@ -1,21 +1,24 @@
 # claude-budget-statusline
 
 A two-line statusline for Claude Code: model, effort, context use, session
-cost and two budget bars on the first line; directory, branch and diff on the
-second (switch the second line off with `CLAUDE_BUDGET_REPO_LINE=off`).
+cost, the prompt cache's countdown and two budget bars on the first line;
+directory, branch and diff on the second (switch the second line off with
+`CLAUDE_BUDGET_REPO_LINE=off`).
 
 ![the statusline as rendered in a terminal](docs/preview.svg)
 
 ```
-Opus · high | ctx:██████░░░░░░░░░ 43% $3.72 | day:██████████░░░░░ 64% $9.40/$15 month:█████░░░░░░░░░░ 36% $143/$400
+Opus · high | ctx:█████░░░░░░ 43% $3.72 · cache 42m | day:███████░░░░ 64% $9.40/$15 month:██│█░░░░░░░ 36% $143/$400
 ~/claude-budget-statusline ⎇  feature/preview · pending +16 · vs main +30 · session +118/-27
 ```
 
 A Friday afternoon: $9.40 of today's $15 allowance spent, $143 of the $400
-month. The same line on a Saturday reads `off:` instead of `day:`; past the
-limit the month bar pegs and a coral `+$20` follows it; once no fetch has
-succeeded for five minutes a dim `·12m` age tag closes the segment. The
-budget bars:
+month, and the light tick in the month bar says the month's workdays are a
+fifth gone, so the fill just past it is a little ahead of pace. The
+conversation's prompt cache stays warm for another 42 minutes. The same line
+on a Saturday reads `off:` instead of `day:`; past the limit the month bar
+pegs and a coral `+$20` follows it; once no fetch has succeeded for five
+minutes a dim `·12m` age tag closes the segment. The budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
   month's *remaining* budget evenly over the remaining workdays of the month
@@ -25,7 +28,23 @@ budget bars:
   the allowance shown is the next workday's slice, which that day's spend
   draws down.
 - **month** — month-to-date spend against the monthly limit. Past the limit
-  the bar pegs and shows the overage.
+  the bar pegs and shows the overage. The tick marks today's place in the
+  month's workdays (elapsed over total, from the same calendar): fill short
+  of it is under pace, fill past it is over. On the last workday it sits on
+  the final cell, a finish line the fill meets at the limit; past the limit
+  it stays put over the pegged fill.
+
+And on the ctx segment, after the session cost:
+
+- **cache** — the prompt cache's state for this conversation, from the
+  `prompt_cache` object Claude Code reports after the first response. Each
+  request re-reads the conversation's cached prefix at a fraction of the
+  input price while the cache is warm, and pays to write it all again once
+  it has expired. `cache 42m` counts down to that expiry, dim; it turns gold
+  in the last five minutes of a one-hour cache (the last minute of a
+  five-minute one), when one more turn keeps the prefix and an idle wait
+  loses it; `cache cold ↻38k` in coral means the next request re-caches
+  38k tokens. Hidden until caching has been observed.
 
 Both read the same numbers the `/usage` page shows, so there is no local token
 pricing to drift. This is for organization or Team accounts with spend
@@ -234,6 +253,8 @@ and nothing is installed system-wide. One file per area:
 | `fetch.bats` | the usage fetch through a fake `curl` (`tests/bin/curl`): request shape, response shapes, day-start baseline, limit precedence, every failure's hold |
 | `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_BUDGET_REFRESH` |
 | `layout.bats` | bar widths across terminal widths, the two-row split, model/effort/context/cost pieces |
+| `pace.bats` | the month bar's pace tick: its cell for workdays, weekends, holidays, the last workday, past the limit, across budget clocks |
+| `cache.bats` | the prompt-cache cue: countdown, the gold window per TTL, the cold form with its re-cache figure, when it hides, its width |
 | `colors.bats` | the escapes: ramp colours on bars and effort, dim annotations, input text printed verbatim |
 | `repoline.bats` | the location row against a scratch git repository with a remote |
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |

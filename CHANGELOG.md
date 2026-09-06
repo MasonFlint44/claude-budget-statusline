@@ -4,6 +4,24 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.3.0 — 2026-09-06
+
+- **Pace tick.** A light line in the month bar marks today's place in the
+  month's workdays (elapsed over total, from the calendar): fill short of
+  it is under pace, fill past it is over. It rounds onto a cell the way the
+  fill does, sits on the final cell through the last workday, and keeps its
+  calendar position over a pegged, past-the-limit fill.
+- **Prompt-cache cue.** After the session cost: `cache 42m` while the
+  conversation's cached prefix is warm (dim; gold in the last five minutes
+  of a 1h TTL, the last minute of a 5m one), `cache cold ↻38k` in coral once
+  it has expired, with the tokens the next request re-caches. From the
+  `prompt_cache` object Claude Code sends; hidden until caching has been
+  observed. Counted in the row's width like the age tag.
+- Tests: `pace.bats` and `cache.bats` (228 tests); the five-minute age-tag
+  and 120-second refresh boundary tests allow the fake clock's second or two
+  of jitter, as the 60-second one already did.
+- README preview regenerated with both cues.
+
 ## 2.2.5 — 2026-09-06
 
 - `--doctor` reports `cache: could not write` when the cache directory is not

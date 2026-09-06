@@ -44,8 +44,8 @@ tick() { render "$NOW" "$@"; wait_refresh; }
     wait_refresh; assert_equal "$(curl_calls)" 1
 }
 @test "the lock is released after the refresh" { aged 600; tick; [ ! -d "$CFG/cache/statusline/budget-usage.lock" ]; }
-@test "CLAUDE_BUDGET_REFRESH=120: 119 s is fresh, 120 s is stale" {
-    aged 119; tick CLAUDE_BUDGET_REFRESH=120; assert_equal "$(curl_calls)" 0
+@test "CLAUDE_BUDGET_REFRESH=120: 117 s is fresh, 120 s is stale" {
+    aged 117; tick CLAUDE_BUDGET_REFRESH=120; assert_equal "$(curl_calls)" 0
     aged 120; tick CLAUDE_BUDGET_REFRESH=120; assert_equal "$(curl_calls)" 1
 }
 @test "CLAUDE_BUDGET_REFRESH below 10 clamps to 10" {

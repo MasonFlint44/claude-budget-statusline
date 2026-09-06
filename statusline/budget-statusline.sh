@@ -20,7 +20,13 @@
 #        (floored at 1), so that spend draws against the next workday's slice.
 #   month: monthly spend vs the monthly limit. Past the limit the bar pegs,
 #        the percent keeps counting, and a coral "+$N" shows the overage
-#        (e.g. a month where the limit got raised on request).
+#        (e.g. a month where the limit got raised on request). A light tick
+#        in the bar marks how far through the month's workdays today is: fill
+#        short of the tick is under pace, fill past it is over.
+#   ctx:  context use and the session's cost, then the prompt cache: "cache
+#        42m" while the conversation's cached prefix is warm (gold in its last
+#        five minutes), "cache cold ↻38k" once it has expired, with the tokens
+#        the next request re-caches.
 #
 # The monthly limit is CLAUDE_BUDGET_MONTHLY_LIMIT if set (your own target,
 # even when the org sets a higher one), else the limit in the usage response.
@@ -35,7 +41,7 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.2.5   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.3.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 # Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
 # thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
 # 3.2) gets one clear line instead of a syntax error further down. Every
@@ -431,10 +437,15 @@ if [ -z "${1:-}" ]; then
         (.model.display_name // ""), (.effort.level // ""),
         ((.context_window.used_percentage // null) | if type == "number" then . else "" end),
         (.cost.total_cost_usd // ""), (.workspace.current_dir // .cwd // ""),
-        (.cost.total_lines_added // 0), (.cost.total_lines_removed // 0)] | map(tostring) | join("\u0000")' 2>/dev/null)
+        (.cost.total_lines_added // 0), (.cost.total_lines_removed // 0),
+        (.prompt_cache.caching_observed // false), (.prompt_cache.warm // false), (.prompt_cache.ttl // ""),
+        ((.prompt_cache.expires_at // null) | if type == "number" then floor else "" end),
+        ((.prompt_cache.recache_tokens_if_cold // null) | if type == "number" then floor else "" end)
+        ] | map(tostring) | join("\u0000")' 2>/dev/null)
 fi
 model="${f[0]:-}"; effort="${f[1]:-}"; used_pct="${f[2]:-}"; session_cost="${f[3]:-}"
 cur_dir="${f[4]:-}"; lines_added="${f[5]:-0}"; lines_removed="${f[6]:-0}"
+pc_observed="${f[7]:-}"; pc_warm="${f[8]:-}"; pc_ttl="${f[9]:-}"; pc_exp="${f[10]:-}"; pc_recache="${f[11]:-}"
 
 # ANSI color codes
 CLR_DIM=$'\033[2m'
@@ -499,10 +510,13 @@ effort_color() {
     esac
 }
 
-# Build an ASCII progress bar with the percentage shown after the bar: bar <pct> <width>
+# Build an ASCII progress bar with the percentage shown after the bar: bar <pct> <width> [tick]
 # e.g. bar 42 10 -> █████░░░░░ 42%  (width = number of block characters)
 # Fill color: continuous green -> gold -> coral ramp, see ramp_color().
 # Percentages over 100 peg the fill and keep counting in the label.
+# An optional tick (a cell index, 0-based) replaces that block with a light
+# line: bar 42 10 3 -> ███│█░░░░░ 42%. Over the fill it takes the default
+# foreground, over the empty run it is dim, so it reads on either side.
 # Round a non-negative decimal string half-up ("12.5" -> 13, "42.6" -> 43).
 # printf '%.0f' would round halves to even, and awk's %d truncates.
 round() {   # VALUE VAR
@@ -531,17 +545,28 @@ bar() {
     [ "$filled" -gt "$width" ] && filled=$width
     local empty=$(( width - filled ))
 
-    local fill_str empty_str color
-    fill_str=''; for ((i=0; i<filled; i++)); do fill_str+='█'; done
-    empty_str=''; for ((i=0; i<empty; i++)); do empty_str+='░'; done
-
     # Pick color from the shared ramp (matches the effort levels).
     local color
     ramp_color "$pct_int" color
 
-    # Colored filled blocks, then plain empty blocks, then space and percentage
-    printf "${color}%s${CLR_RESET}%s %s%%" "$fill_str" "$empty_str" "$pct_int"
+    # Colored filled blocks, then plain empty blocks, then space and percentage.
+    # The strings are built from counts (no substring on the multibyte
+    # blocks, which a C locale would slice mid-character).
+    local tick="${3:-}" a b c
+    if [ -n "$tick" ] && [ "$tick" -lt "$filled" ]; then
+        rep '█' "$tick" a; rep '█' $(( filled - tick - 1 )) b; rep '░' "$empty" c
+        [ -n "$b" ] && b="${color}${b}${CLR_RESET}"
+        printf "${color}%s${CLR_RESET}%s%s%s %s%%" "$a" "$TICK" "$b" "$c" "$pct_int"
+    elif [ -n "$tick" ]; then
+        rep '█' "$filled" a; rep '░' $(( tick - filled )) b; rep '░' $(( width - tick - 1 )) c
+        printf "${color}%s${CLR_RESET}%s${CLR_DIM}%s${CLR_RESET}%s %s%%" "$a" "$b" "$TICK" "$c" "$pct_int"
+    else
+        rep '█' "$filled" a; rep '░' "$empty" b
+        printf "${color}%s${CLR_RESET}%s %s%%" "$a" "$b" "$pct_int"
+    fi
 }
+rep() { local s="" i; for ((i = 0; i < $2; i++)); do s+="$1"; done; printf -v "$3" '%s' "$s"; }   # CH N VAR: CH repeated N times
+TICK='│'   # the pace tick, a light vertical line (U+2502)
 
 # Format dollar amounts compactly, one per line: <10 -> $1.23, <1000 -> $123,
 # else $1.3k; an empty argument gives an empty line. One awk for all of them.
@@ -811,7 +836,7 @@ if { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cach
 fi
 
 # --- Budget math ---
-day_pct=""; mo_pct=""; day_allow=""; mo_over=0; day_label="day:"
+day_pct=""; mo_pct=""; day_allow=""; mo_over=0; day_label="day:"; pace_done=""; pace_total=0
 # No known limit (response had none, no override): the bars stay hidden.
 if [ -n "$day_cost" ] && is_pos "$MONTHLY_LIMIT"; then
     # Remaining WORKdays in the month, today included. The workday mask and
@@ -822,6 +847,12 @@ if [ -n "$day_cost" ] && is_pos "$MONTHLY_LIMIT"; then
     days_in_month "${ym%-*}" "${ym#*-}"
     count_workdays "$wd_mask" "$hol_doms" "$dom" "$dow" "$DIM"; wd=$WD
     [ "$wd" -ge 1 ] 2>/dev/null || wd=1
+    # The pace tick's position: workdays elapsed (today included) over the
+    # month's workdays. A non-workday adds nothing, so a weekend sits where
+    # Friday left it. Rendered as a cell of the month bar by pace_cell.
+    day_ordinal "${ym%-*}" "$((10#${ym#*-}))" 1
+    count_workdays "$wd_mask" "$hol_doms" 1 "$DOW" "$DIM"; pace_total=$WD
+    count_workdays "$wd_mask" "$hol_doms" 1 "$DOW" "$dom"; pace_done=$WD
     # The cue that today's allowance is borrowed from the next workday.
     is_workday "$wd_mask" "$dow" || day_label="off:"
     case " $hol_doms " in *" $dom "*) day_label="off:" ;; esac
@@ -891,9 +922,35 @@ if [ "$have_budget_figures" = 1 ] && is_int "$cache_age" && [ "$cache_age" -ge "
     if [ "$cache_age" -lt 3600 ]; then stale_str="·$(( cache_age / 60 ))m"; else stale_str="·$(( cache_age / 3600 ))h"; fi
 fi
 
+# --- Prompt-cache cue ---
+# After the first response Claude Code reports whether the conversation's
+# cached prefix is still warm and when it goes cold. While warm a dim
+# "cache 42m" (minutes left, rounded up; seconds under a minute) hangs off
+# the ctx segment; it turns gold in the last five minutes of a 1h TTL, the
+# last minute of a 5m one: one more turn now keeps the prefix, an idle wait
+# pays to rebuild it. Cold, it reads "cache cold" in coral with the tokens
+# the next request re-caches when known (↻38k). Hidden until caching has
+# been observed, and without a ctx bar to hang on.
+CACHE_WARN_1H=300; CACHE_WARN_5M=60
+cache_str=""; cache_clr=""
+if [ "$have_ctx" = 1 ] && [ "$pc_observed" = true ]; then
+    left=""; [ "$pc_warm" = true ] && is_int "$pc_exp" && left=$(( pc_exp - now ))
+    if [ -n "$left" ] && [ "$left" -gt 0 ]; then
+        if [ "$left" -ge 60 ]; then cache_str="cache $(( (left + 59) / 60 ))m"; else cache_str="cache ${left}s"; fi
+        warn=$CACHE_WARN_1H; [ "$pc_ttl" = 5m ] && warn=$CACHE_WARN_5M
+        if [ "$left" -le "$warn" ]; then ramp_color 50 cache_clr; else cache_clr="$CLR_DIM"; fi
+    else
+        cache_str="cache cold"; ramp_color 100 cache_clr
+        if is_int "$pc_recache" && [ "$pc_recache" -gt 0 ]; then
+            if [ "$pc_recache" -ge 1000 ]; then cache_str="$cache_str ↻$(( (pc_recache + 500) / 1000 ))k"; else cache_str="$cache_str ↻$pc_recache"; fi
+        fi
+    fi
+fi
+
 # --- Per-piece visible "chrome" widths (everything that isn't bar blocks) ---
-# Only "·" is multibyte; " · " is counted as the constant 3, the rest is ASCII,
-# so ${#...} is a correct column count regardless of locale.
+# " · " is counted as the constant 3 and the cache cue measured with its "↻"
+# swapped for ASCII; everything else is ASCII, so ${#...} is a correct
+# column count regardless of locale.
 model_w=0
 if [ -n "$model" ]; then
     model_w=${#model}
@@ -903,6 +960,9 @@ ctx_chrome=0
 if [ "$have_ctx" = 1 ]; then
     ctx_chrome=$(( 4 + 1 + ${#ctx_i} + 1 ))                           # "ctx:" + " NN%"
     [ -n "$session_money" ] && ctx_chrome=$(( ctx_chrome + 1 + ${#session_money} ))
+    # " · " is 3; "↻" is one column whatever the locale counts, so it is
+    # swapped for an ASCII stand-in before measuring.
+    [ -n "$cache_str" ] && { cache_w="${cache_str/↻/r}"; ctx_chrome=$(( ctx_chrome + 3 + ${#cache_w} )); }
 fi
 day_chrome=0
 [ "$have_day" = 1 ] && day_chrome=$(( 4 + 1 + ${#day_pct} + 1 ))      # "day:"/"off:" + " NN%"
@@ -949,7 +1009,19 @@ build_ctx() {   # $1 = bar width
     local s
     s="ctx:$(bar "$used_pct" "$1")"
     [ -n "$session_money" ] && s="$s ${CLR_DIM}${session_money}${CLR_RESET}"
+    [ -n "$cache_str" ] && s="$s ${CLR_DIM}·${CLR_RESET} ${cache_clr}${cache_str}${CLR_RESET}"
     printf '%s' "$s"
+}
+# pace_cell WIDTH -> PACE: the month bar cell the pace tick sits on, rounded
+# like the fill (so fill that exactly meets the tick is exactly on pace) and
+# clamped onto the last cell, where it stays through the final workday as the
+# finish line. Empty when the month has no workdays at all.
+pace_cell() {
+    PACE=""
+    [ "$pace_total" -gt 0 ] 2>/dev/null || return
+    PACE=$(( (2 * pace_done * $1 + pace_total) / (2 * pace_total) ))
+    [ "$PACE" -gt $(( $1 - 1 )) ] && PACE=$(( $1 - 1 ))
+    return 0
 }
 build_budget() {  # $1 = day width, $2 = mo width
     local s=""
@@ -958,7 +1030,8 @@ build_budget() {  # $1 = day width, $2 = mo width
         [ -n "$day_money" ] && s="$s ${CLR_DIM}${day_money}${CLR_RESET}"
     fi
     if [ "$have_mo" = 1 ]; then
-        s="$s month:$(bar "$mo_pct" "$2")"
+        pace_cell "$2"
+        s="$s month:$(bar "$mo_pct" "$2" "$PACE")"
         [ -n "$mo_money" ] && s="$s ${CLR_DIM}${mo_money}${CLR_RESET}"
         # shellcheck disable=SC2154  # coral is set by ramp_color's printf -v
         [ -n "$over_str" ] && { ramp_color 100 coral; s="$s ${coral}${over_str}${CLR_RESET}"; }
