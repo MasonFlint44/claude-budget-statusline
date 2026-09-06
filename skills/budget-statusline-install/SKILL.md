@@ -26,19 +26,19 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    ```
    The script is refreshed every time. `calendar.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
 
-3. **Check prerequisites** and report any that are missing: `bash`, `jq`, `curl`, `awk`, `git`, and a claude.ai login (the budget bars need the CLI's OAuth token; with an API key they stay hidden). On macOS, warn that the script needs bash 4.4+ (`brew install bash`, then name that bash in the `statusLine` command: `"command": "/opt/homebrew/bin/bash <CFG>/statusline/budget-statusline.sh"`); the system bash is 3.2.
+3. **Pick the bash.** The script needs bash 4.4+. On Linux and in Git Bash on Windows, `bash` is fine. On macOS the system bash is 3.2, and a bare `bash` in the `statusLine` command may resolve to it, so the command must name a newer one by absolute path: check `/opt/homebrew/bin/bash` (Apple silicon) then `/usr/local/bin/bash` (Intel) with `"$candidate" -c 'echo ${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}'`, and use the first that reports 4.4 or newer. If neither exists, stop and tell the user to run `brew install bash`, then re-run this skill; do not wire the system bash. Call the chosen interpreter `<BASH>` below (`bash` outside macOS).
 
 4. **Wire settings.** Read `$CFG/settings.json`. Show the user the exact change before making it, then set:
    ```json
-   "statusLine": { "type": "command", "command": "bash <CFG>/statusline/budget-statusline.sh" }
+   "statusLine": { "type": "command", "command": "<BASH> <CFG>/statusline/budget-statusline.sh" }
    ```
-   with `<CFG>` expanded to the real path. If a different `statusLine` is already set, say so and ask before replacing it. Never touch any other key.
+   with `<BASH>` and `<CFG>` expanded to the real paths. If a different `statusLine` is already set, say so and ask before replacing it. Never touch any other key.
 
-5. **Run the doctor** on the installed copy, with any inline knobs from the `statusLine` command in front, and show its output:
+5. **Run the doctor** on the installed copy, with the same interpreter and any inline knobs the `statusLine` command has in front, and show its output:
    ```bash
-   bash "$CFG/statusline/budget-statusline.sh" --doctor
+   <BASH> "$CFG/statusline/budget-statusline.sh" --doctor
    ```
-   It checks the credentials, fetches the usage figures once in the foreground, and ends with `bars: will show` or `bars: hidden` after the step that failed. If the bars will be hidden, explain the failing line (an API-key session has no usage token; a plan with no dollar figure cannot show budget bars; a missing limit needs `CLAUDE_BUDGET_MONTHLY_LIMIT`) and point at `/budget-statusline-doctor` for later.
+   It checks the tools (jq, curl, awk; a missing one comes with the install command for this platform), the credentials, fetches the usage figures once in the foreground, and ends with `bars: will show` or `bars: hidden` after the step that failed. If the bars will be hidden, explain the failing line (an API-key session has no usage token; a plan with no dollar figure cannot show budget bars; a missing limit needs `CLAUDE_BUDGET_MONTHLY_LIMIT`) and point at `/budget-statusline-doctor` for later.
 
 6. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). A successful doctor run has already filled the cache, so the bars show on the first render. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_CALENDAR`, `CLAUDE_BUDGET_REPO_LINE`), at `/budget-statusline-calendar` for editing the calendar (work week, holidays, PTO), and at `/budget-statusline-doctor` if the bars ever go blank.
 
@@ -47,3 +47,4 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
 - Do not point `statusLine` at the plugin directory — it changes on update.
 - Do not overwrite an existing `calendar.conf`.
 - Do not edit settings without showing the change first.
+- Do not wire the macOS system bash (3.2); name a 4.4+ bash by absolute path or stop.

@@ -9,7 +9,7 @@ The statusline spreads the month's remaining budget over the remaining workdays,
 
 ## Where the file is
 
-Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the installed script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_CALENDAR=...` or `CLAUDE_BUDGET_TZ=...` before it. Run the listing with exactly those knobs and that script path, and it prints `calendar: <path>` on its first line: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/calendar.conf`. Do not edit the plugin's own `statusline/config/calendar.conf`: it is the shipped default and is replaced on every plugin update. If the listing reports no file or the script is not installed, say so and point the user at `/budget-statusline-install`.
+Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the installed script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_CALENDAR=...` or `CLAUDE_BUDGET_TZ=...` before it, and names the interpreter (`bash`, or on macOS an absolute path such as `/opt/homebrew/bin/bash`). Run the listing with exactly those knobs, that interpreter and that script path, and it prints `calendar: <path>` on its first line: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/calendar.conf`. Do not edit the plugin's own `statusline/config/calendar.conf`: it is the shipped default and is replaced on every plugin update. If the listing reports no file or the script is not installed, say so and point the user at `/budget-statusline-install`.
 
 ## The grammar
 
@@ -30,7 +30,7 @@ Yearly rules follow the observe policy. `once` lines are literal, so a PTO range
 
 1. **Show the current state.** Run the listing, with any inline knobs from the `statusLine` command in front, and show the user its output:
    ```bash
-   [KNOBS] bash "$CFG/statusline/budget-statusline.sh" --calendar
+   [KNOBS] [BASH] "$CFG/statusline/budget-statusline.sh" --calendar
    ```
    It prints the calendar path, the work week, the observe policy, this year's holidays with their observed dates, warnings for lines that don't parse, and this month's total and remaining workday counts. Pass a year (`--calendar 2027`) to check another year. For a pure "show me" request, stop here.
 

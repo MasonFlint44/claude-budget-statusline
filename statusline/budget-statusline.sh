@@ -35,7 +35,18 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.2.2   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.2.3   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+# Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
+# thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
+# 3.2) gets one clear line instead of a syntax error further down. Every
+# code path, the statusline render included, exits here.
+if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
+    case "$(uname -s 2>/dev/null)" in
+        Darwin) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Install: brew install bash, then name that bash in the statusLine command: \"/opt/homebrew/bin/bash $0\" (Intel Macs: /usr/local/bin/bash). Re-running /budget-statusline-install does this for you." >&2 ;;
+        *) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed." >&2 ;;
+    esac
+    exit 1
+fi
 SCRIPT_DIR=$(readlink -f "${BASH_SOURCE[0]:-$0}"); SCRIPT_DIR="${SCRIPT_DIR%/*}"
 # The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
 BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
@@ -714,13 +725,7 @@ if [ "${1:-}" = "--doctor" ]; then
         install_hint $missing
         fail "tools:" "missing:${missing}. Install: $HINT"
     fi
-    if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
-        install_hint bash
-        case "$OSTYPE" in
-            darwin*) fail "tools:" "bash $BASH_VERSION is too old: 4.4+ needed. Install: $HINT, then name that bash in the statusLine command (/opt/homebrew/bin/bash or /usr/local/bin/bash)" ;;
-            *) fail "tools:" "bash $BASH_VERSION is too old: 4.4+ needed. Install: $HINT" ;;
-        esac
-    fi
+    # (bash itself is checked by the guard at the top of the script.)
     gitnote=""; command -v git >/dev/null 2>&1 || gitnote=", no git (the branch and diff line stays blank)"
     doc "tools:" "bash $BASH_VERSION, jq, curl, awk, readlink$gitnote"
     doc "config dir:" "$CLAUDE_DIR"

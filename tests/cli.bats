@@ -16,3 +16,10 @@ load helpers
 @test "CLAUDE_BUDGET_CALENDAR: any other word is a path" {
     run at "$NOW" env CLAUDE_BUDGET_CALENDAR=disabled bash "$SL" --calendar 2026; assert_has "calendar: no file at disabled"
 }
+@test "the bash version guard is the first command and uses nothing newer than bash 3" {
+    # Everything before the guard must be bash-3 safe, or an old bash dies with
+    # a syntax error before reaching it. Pin the guard's position and its text.
+    local n; n=$(grep -n 'BASH_VERSINFO\[0\]}" -lt 4' "$SL" | head -1 | cut -d: -f1); [ "$n" -lt 60 ]
+    ! head -n "$n" "$SL" | grep -Eq 'mapfile|\$\{[a-zA-Z_]+,,\}|%\(.*\)T|local -A|read -d|\[\[ '
+    grep -q 'brew install bash, then name that bash in the statusLine command' "$SL"
+}

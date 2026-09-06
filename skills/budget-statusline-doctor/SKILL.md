@@ -9,11 +9,11 @@ The budget bars hide whenever any step of the usage refresh fails, and the statu
 
 ## Steps
 
-1. **Find the installed script.** Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_MONTHLY_LIMIT=...` or `CLAUDE_BUDGET_TZ=...` in front of it. If there is no `statusLine` entry, or it names another script, the budget statusline is not installed: say so and point the user at `/budget-statusline-install`.
+1. **Find the installed script.** Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_MONTHLY_LIMIT=...` or `CLAUDE_BUDGET_TZ=...` in front of it, and names the interpreter (`bash`, or on macOS an absolute path such as `/opt/homebrew/bin/bash`): use the same one. If there is no `statusLine` entry, or it names another script, the budget statusline is not installed: say so and point the user at `/budget-statusline-install`.
 
-2. **Run the doctor with exactly those knobs and that path**, and show the user its output verbatim:
+2. **Run the doctor with exactly those knobs, that interpreter and that path**, and show the user its output verbatim:
    ```bash
-   [KNOBS] bash "$CFG/statusline/budget-statusline.sh" --doctor
+   [KNOBS] [BASH] "$CFG/statusline/budget-statusline.sh" --doctor
    ```
    It prints one line per step (version, tools, config dir, budget clock, calendar, this month's workdays, credentials, the live usage fetch, the limit, the cache) and ends with `bars: will show` (exit 0) or `bars: hidden` (exit 1) right after the step that failed. A successful run also refreshes the cache, so the next render shows current figures.
 

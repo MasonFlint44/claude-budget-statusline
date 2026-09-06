@@ -4,6 +4,17 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.2.3 — 2026-09-05
+
+- The bash 4.4+ check is now the first command in the script, in bash-3
+  syntax, so a too-old bash (macOS's 3.2) gets one clear line with the
+  install command instead of a syntax error; 2.2.2's check sat inside
+  `--doctor`, past bash-4 syntax, and was unreachable on the bash it was for.
+- `/budget-statusline-install` picks the interpreter itself: on macOS it
+  wires `/opt/homebrew/bin/bash` or `/usr/local/bin/bash` (4.4+) by absolute
+  path, or stops and asks for `brew install bash`; the calendar and doctor
+  skills reuse whatever interpreter the `statusLine` command names.
+
 ## 2.2.2 — 2026-09-05
 
 - Skills renamed with the plugin's name as prefix, so they cannot collide
