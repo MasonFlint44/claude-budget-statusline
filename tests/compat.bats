@@ -16,7 +16,7 @@ in_bash() { local v="$1"; shift; run docker run --rm -v "$TESTS_DIR/../statuslin
 }
 @test "bash 3.2 on Darwin: the guard names brew and the install skill" {
     in_bash 3.2 'mkdir -p /f; printf "#!/bin/sh\necho Darwin\n" > /f/uname; chmod +x /f/uname; PATH=/f:$PATH bash /s/budget-statusline.sh --doctor'
-    assert_status 1; assert_has "Run: brew install bash, then /budget-statusline-install"
+    assert_status 1; assert_has "Run: brew install bash, then /budget-statusline:budget-statusline-install"
 }
 @test "bash 4.3 is also too old" { in_bash 4.3 'bash /s/budget-statusline.sh --doctor'; assert_status 1; assert_has "4.3.48(1)-release is too old"; }
 @test "bash 4.4: the guard passes, the doctor reaches the tools line and names apk" {

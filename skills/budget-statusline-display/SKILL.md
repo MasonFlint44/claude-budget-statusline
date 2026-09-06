@@ -15,7 +15,7 @@ Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$H
 [KNOBS] [BASH] "$CFG/statusline/budget-statusline.sh" --display
 ```
 
-Its first line is `display: <path>`: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/display.conf`. If the line reads `no file at <path>`, create the file at that path. If it reads `off (CLAUDE_BUDGET_DISPLAY=off)`, the command has switched the file off; say so and ask whether to remove that knob from the `statusLine` command (the display skill never edits `settings.json` without asking). Do not edit the plugin's own `statusline/config/display.conf`: it is the shipped default and is replaced on every plugin update. If the script is not installed, say so and point the user at `/budget-statusline-install`.
+Its first line is `display: <path>`: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/display.conf`. If the line reads `no file at <path>`, create the file at that path. If it reads `off (CLAUDE_BUDGET_DISPLAY=off)`, the command has switched the file off; say so and ask whether to remove that knob from the `statusLine` command (the display skill never edits `settings.json` without asking). Do not edit the plugin's own `statusline/config/display.conf`: it is the shipped default and is replaced on every plugin update. If the script is not installed, say so and point the user at `/budget-statusline:budget-statusline-install`.
 
 ## The grammar
 
@@ -57,7 +57,7 @@ Hiding an element hides everything that needs it; the listing marks those `off (
 - **Show something again** ("bring the session churn back"): remove the name from every `hide` line that carries it; delete a line left empty. If the element is `off (needs X)`, it is X that must come back; say so.
 - **What is displayed or hidden**: run the listing and show it. For a pure question, stop there: no edit.
 - **What can be switched on**: the listing's `off` rows are the answer; an all-`on` listing means everything is already shown.
-- **Why did X disappear**: run the listing. `off` means the file hides it; `off (needs Y)` means Y is hidden. If X is `on` the file is not the reason: the element hides itself when it has nothing to show (no budget figure for the bars, a clean tree for `pending`, no edits yet for `session`, no cache observed yet for `cache`), and blank budget bars are `/budget-statusline-doctor`'s question. Answer, no edit.
+- **Why did X disappear**: run the listing. `off` means the file hides it; `off (needs Y)` means Y is hidden. If X is `on` the file is not the reason: the element hides itself when it has nothing to show (no budget figure for the bars, a clean tree for `pending`, no edits yet for `session`, no cache observed yet for `cache`), and blank budget bars are `/budget-statusline:budget-statusline-doctor`'s question. Answer, no edit.
 - **Reset to defaults**: remove every `hide` line (keep the comments). Everything shows.
 - **Reorder, move an element to another row, put the repo row first**: not supported by the statusline, whose rows are fixed by design. Say so plainly and offer hiding instead.
 

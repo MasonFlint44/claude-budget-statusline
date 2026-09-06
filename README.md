@@ -121,7 +121,7 @@ bash statusline/budget-statusline.sh --display
 
 prints the file in use and one line per element, `on`, `off`, or `off
 (needs ctx)` for one hidden through its parent, with the description, then
-any line it skipped. The `/budget-statusline-display` skill edits the
+any line it skipped. The `/budget-statusline:budget-statusline-display` skill edits the
 installed file for you: "hide the pace tick", "what is hidden", "why did
 the cache cue disappear".
 
@@ -136,12 +136,12 @@ the cache cue disappear".
 
 ## Install
 
-**As a Claude Code plugin**, from the `claude-statuslines` marketplace:
+**As a Claude Code plugin**, from the `claude-toolbox` marketplace:
 
 ```
-/plugin marketplace add MasonFlint44/claude-statuslines
-/plugin install budget-statusline@claude-statuslines
-/budget-statusline-install
+/plugin marketplace add MasonFlint44/claude-toolbox
+/plugin install budget-statusline@claude-toolbox
+/budget-statusline:budget-statusline-install
 ```
 
 The install skill copies the files to `~/.claude/statusline/`, adds the
@@ -214,7 +214,7 @@ observed on the previous December 30 or 31 appears under the new year, the
 way official calendars print it. The workday math itself goes by the observed
 date.
 
-The `/budget-statusline-calendar` skill edits the installed calendar for you: "add PTO
+The `/budget-statusline:budget-statusline-calendar` skill edits the installed calendar for you: "add PTO
 next week", "we work Sunday to Thursday", "show my budget calendar".
 
 ## When the bars are blank
@@ -229,7 +229,7 @@ runs the refresh in the foreground one step at a time (credentials, a live
 fetch of the usage endpoint, the limit, the cache) and stops at the first
 failing step with the reason and the fix; exit 1 means the bars would stay
 hidden. Run it with any knobs your `statusLine` command sets. The
-`/budget-statusline-doctor` skill does the same from inside Claude Code ("my budget
+`/budget-statusline:budget-statusline-doctor` skill does the same from inside Claude Code ("my budget
 bars are blank"), finding the installed script for you. The doctor also
 names the display file and what it hides, since a bar switched off there
 is not a failure: with both budget bars hidden it reports that and exits 0.
