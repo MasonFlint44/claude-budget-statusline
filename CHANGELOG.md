@@ -4,6 +4,21 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.5.0 — 2026-09-06
+
+- **Worktrees on the repository row.** In a linked worktree the path
+  reads as a breadcrumb from the main repository: `~/git/project ›
+  wt-demo ⎇  feature/wt`, the main path dim, the worktree's name bright
+  (capped at 24 characters plus `..`, with any directory below the worktree
+  after it), then the worktree's own branch. Claude Code's
+  `.claude/worktrees/<name>` and hand-made sibling worktrees render alike;
+  the main checkout keeps the plain form. Detected through git (`rev-parse
+  --path-format=absolute --git-common-dir`), so a git older than 2.31 falls
+  back to the plain form. The `(repo)` tag is dropped in the worktree form.
+  Part of the `path` element.
+- Tests: `worktree.bats` (283 tests); three more boundary tests widened for
+  the fake clock's jitter (refresh fallback, cache gold window, age tag).
+
 ## 2.4.0 — 2026-09-06
 
 - **Display file.** `config/display.conf` decides which elements show:

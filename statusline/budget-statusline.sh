@@ -42,7 +42,7 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.4.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.5.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 # Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
 # thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
 # 3.2) gets one clear line instead of a syntax error further down. Every
@@ -1192,21 +1192,49 @@ parse_shortstat() {
 # "pending" folds untracked-file lines (gitignore respected; text files under 1 MB) into added; its
 # presence IS the dirty flag. "behind" is as of the last fetch -- we never
 # fetch here. Not width-managed: the TUI truncates rows on its own.
+# In a linked worktree the path reads as a breadcrumb from the main repo:
+#   ~/git/x › wt-demo ⎇ feature/wt
+# (the main path dim, the worktree name bright, plus any directory below
+# it), whether the worktree sits in .claude/worktrees/ or beside the repo.
+# squeeze_path VAR: ~-shorten; past 35 chars squeeze middle components
+# fish-style (~/g/project) so a deep path can't push the interesting right
+# side of the line off-screen.
+squeeze_path() {
+    local sq_p="${!1}" parts n i o
+    sq_p="${sq_p/#$HOME/\~}"
+    if [ ${#sq_p} -gt 35 ]; then
+        IFS=/ read -ra parts <<< "$sq_p"; n=${#parts[@]}; o="${parts[0]}"
+        for ((i = 1; i < n - 1; i++)); do o="$o/${parts[i]:0:1}"; done
+        sq_p="$o/${parts[n-1]}"
+    fi
+    printf -v "$1" '%s' "$sq_p"
+}
 build_locline() {
     local dir="${cur_dir:-$PWD}" s=""
-    # ~-shorten; past 35 chars squeeze middle components fish-style (~/g/project)
-    # so a deep cwd can't push the interesting right side of the line off-screen.
-    local disp="${dir/#$HOME/\~}"
-    if [ ${#disp} -gt 35 ]; then
-        local parts n i o
-        IFS=/ read -ra parts <<< "$disp"; n=${#parts[@]}; o="${parts[0]}"
-        for ((i = 1; i < n - 1; i++)); do o="$o/${parts[i]:0:1}"; done
-        disp="$o/${parts[n-1]}"
-    fi
-    shown path && s="${CLR_DIM}${disp}${CLR_RESET}"
 
-    # Every group here follows the display file; with the branch hidden its
-    # dependents (pending, upstream, vs) are too, so git is not asked at all.
+    # Every group here follows the display file; with the path and branch
+    # hidden their dependents are too, so git is not asked at all.
+    # One rev-parse gives the repo's common dir, this checkout's own git
+    # dir and its top level: the first two differ in a linked worktree
+    # (--path-format needs git 2.31; older ones fail and get the plain form).
+    local common gitdir top wt=""
+    if shown path || shown branch; then
+        { read -r common; read -r gitdir; read -r top; } < <(git -C "$dir" rev-parse --path-format=absolute --git-common-dir --git-dir --show-toplevel 2>/dev/null)
+        [ -z "$top" ] && top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+        if [ -n "$common" ] && [ "$common" != "$gitdir" ] && [ "${common##*/}" = .git ] && [ -n "$top" ]; then
+            wt="${top##*/}"; [ "$dir" != "$top" ] && wt="$wt/${dir#"$top"/}"
+        fi
+    fi
+    local disp
+    if [ -n "$wt" ]; then
+        disp="${common%/.git}"; squeeze_path disp
+        [ ${#wt} -gt 26 ] && wt="${wt:0:24}.."
+        shown path && s="${CLR_DIM}${disp} › ${CLR_RESET}${wt}"
+    else
+        disp="$dir"; squeeze_path disp
+        shown path && s="${CLR_DIM}${disp}${CLR_RESET}"
+    fi
+
     local branch name a r pair
     branch=""
     shown branch && branch=$(git -C "$dir" branch --show-current 2>/dev/null)
@@ -1216,12 +1244,12 @@ build_locline() {
         name="$branch"
         [ ${#name} -gt 26 ] && name="${name:0:24}.."
         # Remote repo name, dim, only when it differs from the repo root's
-        # dirname (e.g. a checkout whose directory is named differently from the repo).
-        local top repo
-        top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+        # dirname (e.g. a checkout whose directory is named differently from
+        # the repo); the breadcrumb already says that in a worktree.
+        local repo
         repo=$(git -C "$dir" remote get-url origin 2>/dev/null)
         repo=${repo##*/}; repo=${repo%.git}
-        [ -n "$repo" ] && [ "$repo" != "${top##*/}" ] && s="$s ${CLR_DIM}(${repo})${CLR_RESET}"
+        [ -z "$wt" ] && [ -n "$repo" ] && [ "$repo" != "${top##*/}" ] && s="$s ${CLR_DIM}(${repo})${CLR_RESET}"
 
         # Two spaces after ⎇ — the glyph's overhang visually eats one.
         s="$s ⎇  ${name}"

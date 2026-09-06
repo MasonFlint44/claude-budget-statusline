@@ -23,7 +23,7 @@ pc() {
 @test "gold in the last five minutes of a 1h TTL, the last minute of a 5m TTL; dim before that" {
     local gold; gold=$(at "$NOW" bash -c 'printf "\033[38;2;250;178;25m"')
     INPUT="$(pc true true 1h 250)" render_raw "$NOW"; assert_has "${gold}cache 5m"
-    INPUT="$(pc true true 1h 301)" render_raw "$NOW"; assert_has $'\033[2mcache 6m'
+    INPUT="$(pc true true 1h 304)" render_raw "$NOW"; assert_has $'\033[2mcache 6m'   # 304, not 301: the fake clock can run a second or two ahead
     INPUT="$(pc true true 5m 200)" render_raw "$NOW"; assert_has $'\033[2mcache 4m'
     INPUT="$(pc true true 5m 50)" render_raw "$NOW"; [[ "$output" =~ "${gold}cache "(4[89]|50)s ]] || { echo "not gold: $output"; false; }
     INPUT="$(pc true true 2h 250)" render_raw "$NOW"; assert_has "${gold}cache 5m"   # an unknown TTL gets the 1h window

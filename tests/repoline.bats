@@ -148,8 +148,9 @@ tail_is() { [[ "$output" == *"$1" ]] || { echo "got: $output"; echo "expected ta
         env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY="$CFG/display.conf" bash "$SL"
     assert_equal "$output" ""
 }
-@test "a hidden branch asks git nothing" {
+@test "with the path and branch hidden git is not asked at all" {
+    busy   # the fixture needs the real git
     mkdir -p "$BATS_TEST_TMPDIR/bin"; printf '#!/bin/sh\necho "$@" >> "%s/git.log"; exit 1\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/bin/git"; chmod +x "$BATS_TEST_TMPDIR/bin/git"
-    display_file "hide branch"; busy PATH="$BATS_TEST_TMPDIR/bin:$PATH"; tail_is "/project · session +4/-1"
+    display_file "hide path branch"; busy PATH="$BATS_TEST_TMPDIR/bin:$PATH"; assert_equal "$output" "· session +4/-1"
     [ ! -e "$BATS_TEST_TMPDIR/git.log" ]
 }

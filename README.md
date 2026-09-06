@@ -18,7 +18,15 @@ fifth gone, so the fill just past it is a little ahead of pace. The
 conversation's prompt cache stays warm for another 42 minutes. The same line
 on a Saturday reads `off:` instead of `day:`; past the limit the month bar
 pegs and a coral `+$20` follows it; once no fetch has succeeded for five
-minutes a dim `·12m` age tag closes the segment. The budget bars:
+minutes a dim `·12m` age tag closes the segment. In a linked worktree
+(Claude Code's `--worktree` sessions, or one you made with `git worktree
+add`) the second line starts from the main repository instead:
+
+```
+~/claude-budget-statusline › wt-demo ⎇  feature/wt · pending +16
+```
+
+The budget bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
   month's *remaining* budget evenly over the remaining workdays of the month
@@ -70,8 +78,8 @@ hidden.
 | `pace` | `│` | the tick in the month bar: today's place in the month's workdays, so fill short of it is under pace | `month` |
 | `age` | `·12m` | how long since a usage fetch last succeeded, once that is five minutes or more | `day` or `month` |
 | `repo` | | the whole repository row | |
-| `path` | `~/claude-budget-statusline` | the working directory, `~`-shortened and squeezed past 35 characters (`~/g/project`) | `repo` |
-| `branch` | `⎇  feature/preview` | the branch (the short hash when detached), preceded by the remote's repository name in parentheses when the directory is named differently | `repo` |
+| `path` | `~/claude-budget-statusline` | the working directory, `~`-shortened and squeezed past 35 characters (`~/g/project`). In a linked worktree: the main repository's path, a dim `›`, then the worktree's name bright (`~/git/project › wt-demo`, with any directory below the worktree after the name) | `repo` |
+| `branch` | `⎇  feature/preview` | the branch (the short hash when detached), preceded by the remote's repository name in parentheses when the directory is named differently (not in a worktree, where the breadcrumb already says where it lives) | `repo` |
 | `pending` | `· pending +16/-2` | uncommitted lines against HEAD, untracked text files included; its presence is the dirty flag | `branch` |
 | `upstream` | `↑1↓2` | commits ahead of and behind the upstream branch, as of the last fetch (the statusline never fetches) | `branch` |
 | `vs` | `· vs main +30` | lines changed against the default branch, hidden on it | `branch` |
@@ -80,6 +88,12 @@ hidden.
 Every element hides itself when it has nothing to show (no budget figure,
 a clean tree, a session with no edits), so a quiet state collapses to
 `Opus | ctx:… | day:… month:…` over `~/project ⎇  main`.
+
+The worktree is detected through git (the common dir differs from the
+checkout's own git dir), not through Claude Code's input, so a worktree
+made by hand renders the same as a `--worktree` session; `pending`,
+`upstream` and `vs` describe the worktree's own tree and branch. A git
+older than 2.31 lacks the query and gets the plain form.
 
 ### Which elements show
 
@@ -323,6 +337,7 @@ and nothing is installed system-wide. One file per area:
 | `cache.bats` | the prompt-cache cue: countdown, the gold window per TTL, the cold form with its re-cache figure, when it hides, its width |
 | `colors.bats` | the escapes: ramp colours on bars and effort, dim annotations, input text printed verbatim |
 | `repoline.bats` | the location row against a scratch git repository with a remote, and each of its elements hidden through the display file |
+| `worktree.bats` | the row inside linked worktrees: under `.claude/worktrees/`, beside the repo, nested directories, long names, detached, dirty, the colours, the display names, and a git without `--path-format` |
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |
 | `doctor.bats` | `--doctor` and `--help`: every step's failure line and exit status, the Keychain fallback through a fake `security` (and that Linux never calls it) |

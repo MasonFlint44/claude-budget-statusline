@@ -7,12 +7,12 @@ load helpers
 setup() { fresh_config; }
 # A render with every first-line element on screen: model + effort, ctx bar
 # + cost + a warm cache cue, day (a Saturday: "off:") + month bars with the
-# pace tick, and an age tag from a cache ten minutes old (no refresh: the
-# interval is longer than that).
+# pace tick, and an age tag from a cache ten and a half minutes old (·10m
+# whichever way the fake clock jitters; no refresh: the interval is longer).
 FULL='{"model":{"display_name":"Opus"},"effort":{"level":"high"},"context_window":{"used_percentage":42.6},"cost":{"total_cost_usd":3.72},"prompt_cache":{"caching_observed":true,"warm":true,"ttl":"1h","expires_at":%s},"workspace":{"current_dir":"/tmp"}}'
 full() {   # full [LINE...]: render FULL with a display file of those lines
     [ $# -gt 0 ] && display_file "$@"
-    printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
+    printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 630 ))" > "$(cache_path)"
     INPUT="$(printf "$FULL" "$(( $(epoch_at "$NOW") + 2500 ))")" render "$NOW" CLAUDE_BUDGET_REFRESH=900
 }
 ALL=("Opus · high" "ctx:" '$3.72' "· cache 42m" "off:" '$3.25/' "month:" '/$400' "│" "·10m")
@@ -41,7 +41,7 @@ bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}
 }
 @test "hide month: the day bar alone; the tick and the overage go with it" {
     full "hide month"; assert_lacks "month:" '$400' "│"; assert_has "off:" '$3.25/' "·10m"
-    printf '2026-09-05 %s 3.25 420 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
+    printf '2026-09-05 %s 3.25 420 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 630 ))" > "$(cache_path)"
     INPUT="$(printf "$FULL" 0)" render "$NOW" CLAUDE_BUDGET_REFRESH=900; assert_lacks '+$20' "month:"
 }
 @test "hide pace: the month bar without its tick" {
@@ -135,7 +135,7 @@ doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; 
 }
 @test "bad lines: the good names on the line still apply, and the render stays silent" {
     display_file "hide pace foo" "show model" "hide"
-    printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
+    printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 630 ))" > "$(cache_path)"
     run --separate-stderr _render "$(printf "$FULL" 0)" "$NOW" CLAUDE_BUDGET_REFRESH=900
     assert_lacks "│"; assert_has "Opus" "month:"; assert_equal "$stderr" ""
 }

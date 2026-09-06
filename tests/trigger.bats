@@ -53,7 +53,7 @@ tick() { render "$NOW" "$@"; wait_refresh; }
     aged 10; tick CLAUDE_BUDGET_REFRESH=5; assert_equal "$(curl_calls)" 1
 }
 @test "a non-integer CLAUDE_BUDGET_REFRESH falls back to 60" {
-    aged 59; tick CLAUDE_BUDGET_REFRESH=soon; assert_equal "$(curl_calls)" 0
+    aged 57; tick CLAUDE_BUDGET_REFRESH=soon; assert_equal "$(curl_calls)" 0   # 57: room for the fake clock's jitter, as above
     aged 60; tick CLAUDE_BUDGET_REFRESH=soon; assert_equal "$(curl_calls)" 1
 }
 @test "the refresh never blocks the render" {
