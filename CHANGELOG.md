@@ -4,6 +4,13 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.2.1 — 2026-09-05
+
+- `/install-statusline` is model-invocable again: 2.2.0 marked it
+  `disable-model-invocation`, which also stopped "install the budget
+  statusline" in chat from reaching it. The slash command and the ask both
+  work.
+
 ## 2.2.0 — 2026-09-05
 
 - `--doctor`: runs the refresh in the foreground one step at a time and names
@@ -20,8 +27,7 @@ tag (`v2.2.0`) and a GitHub release with this section as its notes.
   Claude Code creates. Unverified on a Mac; Linux never touches it.
 - README preview generated from the script (`docs/preview.py`).
 - `plugin.json` carries author, license, repository and homepage and passes
-  `claude plugin validate --strict`; the installer skill is marked
-  `disable-model-invocation`.
+  `claude plugin validate --strict`.
 - shellcheck clean and run in CI. Tests for damaged cache files, 30- and
   20-column terminals, every doctor branch (195 tests).
 
