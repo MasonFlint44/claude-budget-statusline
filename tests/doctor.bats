@@ -7,7 +7,7 @@ doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; 
 
 @test "--help exits 0 and names every flag and knob" {
     run bash "$SL" --help; assert_status 0
-    assert_has "--calendar" "--doctor" "--help" "CLAUDE_BUDGET_MONTHLY_LIMIT" "CLAUDE_BUDGET_TZ" "CLAUDE_BUDGET_REFRESH" "CLAUDE_BUDGET_CALENDAR" "CLAUDE_BUDGET_REPO_LINE" "CLAUDE_CONFIG_DIR"
+    assert_has "--calendar" "--display" "--doctor" "--help" "CLAUDE_BUDGET_MONTHLY_LIMIT" "CLAUDE_BUDGET_TZ" "CLAUDE_BUDGET_REFRESH" "CLAUDE_BUDGET_CALENDAR" "CLAUDE_BUDGET_DISPLAY" "CLAUDE_CONFIG_DIR"
     run bash "$SL" -h; assert_status 0
 }
 @test "the script's VERSION matches plugin.json" {

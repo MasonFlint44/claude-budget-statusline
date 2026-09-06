@@ -99,18 +99,10 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
 @test "budget bars alone: no model, no ctx" {
     INPUT='{}' render "$NOW"; [ "${#lines[@]}" = 1 ]; [[ "${lines[0]}" == off:* ]]; assert_has "month:"
 }
-@test "the repo line is on by default and off with CLAUDE_BUDGET_REPO_LINE=off" {
-    run _render "$FULL" "$NOW" CLAUDE_BUDGET_REPO_LINE=on; [ "${#lines[@]}" = 2 ]; assert_has "/tmp"
+@test "the repo line is on with no display file and off with hide repo" {
+    run _render "$FULL" "$NOW" CLAUDE_BUDGET_DISPLAY=off; [ "${#lines[@]}" = 2 ]; assert_has "/tmp"
     run _render "$FULL" "$NOW"; [ "${#lines[@]}" = 1 ]
 }
 @test "a percentage past 999 pegs the label" {
     cache_line "$NOW" "50 5000 400 1111100 7"; render "$NOW"; assert_has "month:" " 999% "
-}
-@test "CLAUDE_BUDGET_REPO_LINE: off, none, no, 0, false (any case) hide the row; anything else keeps it" {
-    local v; for v in off none no 0 false OFF False; do
-        run _render "$FULL" "$NOW" CLAUDE_BUDGET_REPO_LINE="$v"; [ "${#lines[@]}" = 1 ] || { echo "row still shown with $v"; false; }
-    done
-    for v in on yes 1 true ""; do
-        run _render "$FULL" "$NOW" CLAUDE_BUDGET_REPO_LINE="$v"; [ "${#lines[@]}" = 2 ] || { echo "row hidden with '$v'"; false; }
-    done
 }

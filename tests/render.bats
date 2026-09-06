@@ -41,7 +41,7 @@ setup() { fresh_config; }
     cache_line "$NOW" "0 400 400 1111100 7"; render "$NOW"
     assert_has "off:" " 0% " '$0.00 ' "100%"; assert_lacks '+$'
 }
-@test "old cache format (no workday mask): bars hidden" {
+@test "a cache line with a malformed workday mask: bars hidden" {
     cache_line "$NOW" "3.25 120 400 7"; render "$NOW"
     assert_lacks "day:" "off:" "month:"; assert_has "ctx:"
 }

@@ -23,10 +23,10 @@ in_bash() { local v="$1"; shift; run docker run --rm -v "$TESTS_DIR/../statuslin
     in_bash 4.4 'bash /s/budget-statusline.sh --doctor'; assert_status 1; assert_has "tools:        missing: jq curl. Install: sudo apk add jq curl"
 }
 @test "bash 4.4 with jq: a full render and a calendar listing" {
-    in_bash 4.4 'apk add -q jq curl >/dev/null 2>&1; mkdir -p /c/cache/statusline
+    in_bash 4.4 'apk add -q jq curl >/dev/null 2>&1; mkdir -p /c/cache/statusline; printf "hide repo\n" > /c/display.conf
         printf "%s %s 3.25 120 400 1111100 7\n" "$(date +%F)" "$(date +%s)" > /c/cache/statusline/budget-usage
         echo "{\"model\":{\"display_name\":\"Opus\"},\"effort\":{\"level\":\"high\"},\"context_window\":{\"used_percentage\":42.6},\"cost\":{\"total_cost_usd\":1.5}}" \
-          | CLAUDE_CONFIG_DIR=/c COLUMNS=120 CLAUDE_BUDGET_REPO_LINE=off bash /s/budget-statusline.sh | sed "s/\x1b\[[0-9;]*m//g"; echo
+          | CLAUDE_CONFIG_DIR=/c COLUMNS=120 CLAUDE_BUDGET_DISPLAY=/c/display.conf bash /s/budget-statusline.sh | sed "s/\x1b\[[0-9;]*m//g"; echo
         bash /s/budget-statusline.sh --calendar 2026 | head -4'
     assert_status 0; assert_has "Opus · high | ctx:" " 43% " "month:" '$120/$400' "workdays: Mon Tue Wed Thu Fri" "2026-01-01 Thu New Year's Day"
 }

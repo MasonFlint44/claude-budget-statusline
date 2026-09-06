@@ -4,6 +4,37 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.4.0 — 2026-09-06
+
+- **Display file.** `config/display.conf` decides which elements show:
+  `hide NAME ...` lines, names space or comma separated, case-insensitive,
+  accumulating; no file shows everything. Sixteen names: `model`, `effort`,
+  `ctx`, `cost`, `cache`, `day`, `month`, `pace`, `age`, `repo`, `path`,
+  `branch`, `pending`, `upstream`, `vs`, `session`. Hiding an element hides
+  what hangs off it (ctx takes cost and cache; month takes pace; branch
+  takes pending, upstream and vs; repo takes the row), and the row re-flows
+  around the gap. Hiding both `day` and `month` switches the usage fetch off
+  entirely: no credentials read, no request, no cache or lock written.
+  `CLAUDE_BUDGET_DISPLAY` names another file, or `off` for none. The rows
+  and their order stay fixed.
+- **`--display [FILE]`** lists every element as `on`, `off` or `off (needs
+  X)` with its description, and reports lines it skipped. `--doctor` gains a
+  `display:` line and, with both budget bars hidden, says so and exits 0.
+- **`/budget-statusline-display`** skill: hide or show elements, list what
+  is hidden and what can be switched on, explain why an element vanished,
+  reset to defaults. The installer copies `display.conf` only when absent,
+  like the calendar.
+- **Removed `CLAUDE_BUDGET_REPO_LINE`** (breaking; no users yet): `hide
+  repo` in the display file replaces it.
+- A statusline whose first line is entirely empty no longer prints a blank
+  row above the repository row.
+- README: an Elements section describing every element; the cache-line
+  guard is described as plain corruption handling (the pre-mask format it
+  mentioned never shipped).
+- Tests: `display.bats`, the repository row's names in `repoline.bats`
+  (269 tests); the test helpers hide the repository row through a display
+  file instead of the removed knob.
+
 ## 2.3.0 — 2026-09-06
 
 - **Pace tick.** A light line in the month bar marks today's place in the

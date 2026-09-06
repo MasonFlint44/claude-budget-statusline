@@ -12,6 +12,7 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
 1. **Locate the source.** The files ship with this plugin at `${CLAUDE_PLUGIN_ROOT}/statusline/`:
    - `budget-statusline.sh`
    - `config/calendar.conf` (the work-week and holiday calendar)
+   - `config/display.conf` (which elements the statusline shows)
 
    Resolve the config dir as `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`; call it `$CFG` below.
 
@@ -22,9 +23,11 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    cp "${CLAUDE_PLUGIN_ROOT}/statusline/budget-statusline.sh" "$CFG/statusline/"
    [ -e "$CFG/statusline/config/calendar.conf" ] || \
      cp "${CLAUDE_PLUGIN_ROOT}/statusline/config/calendar.conf" "$CFG/statusline/config/"
+   [ -e "$CFG/statusline/config/display.conf" ] || \
+     cp "${CLAUDE_PLUGIN_ROOT}/statusline/config/display.conf" "$CFG/statusline/config/"
    chmod +x "$CFG/statusline/budget-statusline.sh"
    ```
-   The script is refreshed every time. `calendar.conf` is copied only if absent — once installed it is the user's own calendar (they may have edited it) and must not be overwritten on update.
+   The script is refreshed every time. `calendar.conf` and `display.conf` are copied only if absent — once installed they are the user's own (they may have edited them) and must not be overwritten on update.
 
 3. **Pick the bash.** The script needs bash 4.4+. On Linux and in Git Bash on Windows, `bash` is fine. On macOS the system bash is 3.2, and a bare `bash` in the `statusLine` command may resolve to it, so the command must name a newer one by absolute path: check `/opt/homebrew/bin/bash` (Apple silicon) then `/usr/local/bin/bash` (Intel) with `"$candidate" -c 'echo ${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}'`, and use the first that reports 4.4 or newer. If neither exists, stop and tell the user to run `brew install bash`, then re-run this skill; do not wire the system bash. Call the chosen interpreter `<BASH>` below (`bash` outside macOS).
 
@@ -40,11 +43,11 @@ Plugins cannot set `statusLine` themselves, and the plugin's own directory moves
    ```
    It checks the tools (jq, curl, awk; a missing one comes with the install command for this platform), the credentials, fetches the usage figures once in the foreground, and ends with `bars: will show` or `bars: hidden` after the step that failed. If the bars will be hidden, explain the failing line (an API-key session has no usage token; a plan with no dollar figure cannot show budget bars; a missing limit needs `CLAUDE_BUDGET_MONTHLY_LIMIT`) and point at `/budget-statusline-doctor` for later.
 
-6. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). A successful doctor run has already filled the cache, so the bars show on the first render. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_CALENDAR`, `CLAUDE_BUDGET_REPO_LINE`), at `/budget-statusline-calendar` for editing the calendar (work week, holidays, PTO), and at `/budget-statusline-doctor` if the bars ever go blank.
+6. **Tell the user** the new statusline appears on the next refresh, no restart needed (Claude Code picks up the settings change live). A successful doctor run has already filled the cache, so the bars show on the first render. Point them at the plugin's `README.md` for what the bars mean and the knobs (`CLAUDE_BUDGET_MONTHLY_LIMIT`, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`, `CLAUDE_BUDGET_CALENDAR`, `CLAUDE_BUDGET_DISPLAY`), at `/budget-statusline-calendar` for editing the calendar (work week, holidays, PTO), at `/budget-statusline-display` for hiding or showing elements (the pace tick, the cache cue, the repository row), and at `/budget-statusline-doctor` if the bars ever go blank.
 
 ## Do not
 
 - Do not point `statusLine` at the plugin directory — it changes on update.
-- Do not overwrite an existing `calendar.conf`.
+- Do not overwrite an existing `calendar.conf` or `display.conf`.
 - Do not edit settings without showing the change first.
 - Do not wire the macOS system bash (3.2); name a 4.4+ bash by absolute path or stop.

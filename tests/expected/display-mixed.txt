@@ -1,0 +1,18 @@
+display: <cfg>/display.conf
+model     on                       the model name (Opus)
+effort    on                       the effort level after the model (· high)
+ctx       off                      the context bar and its percentage (ctx:█████░░ 43%)
+cost      off (needs ctx)          the session cost after the context bar ($3.72)
+cache     off (needs ctx)          the prompt-cache cue (· cache 42m, · cache cold ↻38k)
+day       on                       the day bar with its spend and allowance (day:███░░ 64% $9.40/$15)
+month     off                      the month bar with its spend, limit and overage (month:██│█░ 36% $143/$400 +$50)
+pace      off (needs month)        the pace tick in the month bar (│)
+age       on                       the stale-fetch tag after the budget bars (·12m)
+repo      on                       the whole repository row
+path      on                       the working directory (~/claude-budget-statusline)
+branch    off                      the branch, with the repository name when the directory is named differently (⎇  feature/preview)
+pending   off (needs branch)       uncommitted lines (· pending +16)
+upstream  off (needs branch)       commits ahead of and behind upstream (↑1↓2)
+vs        off (needs branch)       lines changed against the default branch (· vs main +30)
+session   off                      lines Claude Code has edited this session (· session +118/-27)
+--- stderr

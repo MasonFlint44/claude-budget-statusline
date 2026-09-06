@@ -2,8 +2,8 @@
 
 A two-line statusline for Claude Code: model, effort, context use, session
 cost, the prompt cache's countdown and two budget bars on the first line;
-directory, branch and diff on the second (switch the second line off with
-`CLAUDE_BUDGET_REPO_LINE=off`).
+directory, branch and diff on the second. Every element can be switched off
+in `config/display.conf` (see [Elements](#elements)).
 
 ![the statusline as rendered in a terminal](docs/preview.svg)
 
@@ -50,6 +50,67 @@ Both read the same numbers the `/usage` page shows, so there is no local token
 pricing to drift. This is for organization or Team accounts with spend
 billing, where the `/usage` page shows dollars; see Prerequisites.
 
+## Elements
+
+Everything the statusline can show, by name. The first line holds the
+model, the context and the budget bars (the budget bars move to a row of
+their own when the terminal is too narrow for one); the repository row is
+last. Some elements hang off another and go with it when that one is
+hidden.
+
+| Name | On screen | What it is | Needs |
+|------|-----------|------------|-------|
+| `model` | `Opus` | the model's display name | |
+| `effort` | `· high` | the effort level, coloured on the same green-to-coral ramp as the bars | `model` |
+| `ctx` | `ctx:█████░░ 43%` | context use, from `context_window.used_percentage` | |
+| `cost` | `$3.72` | the session's cost so far | `ctx` |
+| `cache` | `· cache 42m` | the prompt cache's state: minutes left while warm (gold in its last five, or the last one of a 5m cache), `cache cold ↻38k` once expired with the tokens the next request re-caches | `ctx` |
+| `day` | `day:███░░ 64% $9.40/$15` | today's spend against today's allowance, the month's remaining budget spread over its remaining workdays; `off:` on a day you don't work | |
+| `month` | `month:██│█░ 36% $143/$400` | month-to-date spend against the limit; past it the bar pegs and a coral `+$20` follows | |
+| `pace` | `│` | the tick in the month bar: today's place in the month's workdays, so fill short of it is under pace | `month` |
+| `age` | `·12m` | how long since a usage fetch last succeeded, once that is five minutes or more | `day` or `month` |
+| `repo` | | the whole repository row | |
+| `path` | `~/claude-budget-statusline` | the working directory, `~`-shortened and squeezed past 35 characters (`~/g/project`) | `repo` |
+| `branch` | `⎇  feature/preview` | the branch (the short hash when detached), preceded by the remote's repository name in parentheses when the directory is named differently | `repo` |
+| `pending` | `· pending +16/-2` | uncommitted lines against HEAD, untracked text files included; its presence is the dirty flag | `branch` |
+| `upstream` | `↑1↓2` | commits ahead of and behind the upstream branch, as of the last fetch (the statusline never fetches) | `branch` |
+| `vs` | `· vs main +30` | lines changed against the default branch, hidden on it | `branch` |
+| `session` | `· session +118/-27` | lines Claude Code has added and removed this session, from its own counters | `repo` |
+
+Every element hides itself when it has nothing to show (no budget figure,
+a clean tree, a session with no edits), so a quiet state collapses to
+`Opus | ctx:… | day:… month:…` over `~/project ⎇  main`.
+
+### Which elements show
+
+`config/display.conf`, next to the calendar, lists what to hide, one or
+more names per line:
+
+```
+hide pace cache
+hide session
+```
+
+Names are case-insensitive, space or comma separated; `#` starts a
+comment; lines accumulate. No file, or a file with no `hide` line, shows
+everything. Hiding an element hides whatever hangs off it (`hide ctx`
+takes the cost and the cache cue with it), and the row re-flows around the
+gap, so the bars widen. Hiding both `day` and `month` also switches the
+usage fetch off entirely: no credentials are read and no request is made,
+so a statusline that only wants the repository row makes no network calls.
+Names that don't exist are skipped and reported. The rows and their order
+are fixed; the file cannot rearrange them.
+
+```
+bash statusline/budget-statusline.sh --display
+```
+
+prints the file in use and one line per element, `on`, `off`, or `off
+(needs ctx)` for one hidden through its parent, with the description, then
+any line it skipped. The `/budget-statusline-display` skill edits the
+installed file for you: "hide the pace tick", "what is hidden", "why did
+the cache cue disappear".
+
 > **Note on the data source.** The script calls `api.anthropic.com/api/oauth/usage`
 > with the CLI's own OAuth token — the same request the `/usage` command makes.
 > The token is read from the CLI's credentials file, sent only to that host, and
@@ -94,6 +155,7 @@ the background fetch has run.
 |------|---------|
 | `statusline/budget-statusline.sh` | the statusline itself |
 | `statusline/config/calendar.conf` | the calendar — which days you work and which dates are holidays. Ships with a Monday-to-Friday week and the US federal holidays; edit to match yours, add closures or PTO as `once` lines. Yours once installed: the installer never overwrites it |
+| `statusline/config/display.conf` | which elements show (see [Elements](#elements)). Ships hiding nothing, with every name described in its comments. Yours once installed, like the calendar |
 
 The calendar is one entry per line. Keywords, day names and modes are
 case-insensitive; only the names are free text.
@@ -154,8 +216,10 @@ fetch of the usage endpoint, the limit, the cache) and stops at the first
 failing step with the reason and the fix; exit 1 means the bars would stay
 hidden. Run it with any knobs your `statusLine` command sets. The
 `/budget-statusline-doctor` skill does the same from inside Claude Code ("my budget
-bars are blank"), finding the installed script for you. `--help` lists the
-flags and knobs.
+bars are blank"), finding the installed script for you. The doctor also
+names the display file and what it hides, since a bar switched off there
+is not a failure: with both budget bars hidden it reports that and exits 0.
+`--help` lists the flags and knobs.
 
 ## Prerequisites
 
@@ -221,11 +285,12 @@ shows a smaller day figure. The month bar is the same everywhere.
   would be wrong for today.
 - `CLAUDE_BUDGET_CALENDAR` — path to a calendar file, if not the default;
   `off` means no file at all: a Monday-to-Friday week with no holidays.
-- `CLAUDE_BUDGET_REPO_LINE` — `off` hides the second line (directory, branch,
-  diff), leaving only the first. Default on.
+- `CLAUDE_BUDGET_DISPLAY` — path to a display file, if not the default;
+  `off` means no file at all: every element shows. What shows is decided
+  by the file alone; there are no per-element environment switches.
+- `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
 `off`, `none`, `no`, `0` and `false` all mean off, in any case.
-- `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
 
 Set knobs in the environment Claude Code starts from, or inline in the
 `statusLine` command, e.g. `"command": "CLAUDE_BUDGET_TZ=UTC bash /path/to/budget-statusline.sh"`.
@@ -254,9 +319,10 @@ and nothing is installed system-wide. One file per area:
 | `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_BUDGET_REFRESH` |
 | `layout.bats` | bar widths across terminal widths, the two-row split, model/effort/context/cost pieces |
 | `pace.bats` | the month bar's pace tick: its cell for workdays, weekends, holidays, the last workday, past the limit, across budget clocks |
+| `display.bats` | the display file: each element hidden alone, dependents following their parent, the row re-flowing, the fetch skipped with both budget bars hidden, the file's parsing, golden `--display` listings |
 | `cache.bats` | the prompt-cache cue: countdown, the gold window per TTL, the cold form with its re-cache figure, when it hides, its width |
 | `colors.bats` | the escapes: ramp colours on bars and effort, dim annotations, input text printed verbatim |
-| `repoline.bats` | the location row against a scratch git repository with a remote |
+| `repoline.bats` | the location row against a scratch git repository with a remote, and each of its elements hidden through the display file |
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |
 | `doctor.bats` | `--doctor` and `--help`: every step's failure line and exit status, the Keychain fallback through a fake `security` (and that Linux never calls it) |
@@ -267,7 +333,7 @@ CI runs the suite and `shellcheck` on every push. `docs/preview.py`
 regenerates the README preview from the script itself (python3, git and
 libfaketime), so the picture cannot drift from the code.
 
-The three skills are prose for the model, so they are checked differently:
+The four skills are prose for the model, so they are checked differently:
 `tests/skills/run.sh` runs each case under `tests/skills/cases/` through
 headless Claude (`claude -p`) with this plugin loaded and a throwaway config
 dir, then checks the files the skill left behind (the calendar line landed

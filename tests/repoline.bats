@@ -15,12 +15,13 @@ setup() {
     git remote add origin "$REMOTE"; git push -q -u origin main 2>/dev/null
     git remote set-head origin main 2>/dev/null
 }
-# loc [VAR=value ...] -> $output = the location row only, for $REPO (or $DIR)
+# loc [VAR=value ...] -> $output = the location row only, for $REPO (or $DIR).
+# No display file unless display_file wrote one, so every group shows.
 loc() {
     local dir="${DIR:-$REPO}" input
     input=$(printf '{"workspace":{"current_dir":"%s"},"cost":{"total_lines_added":%s,"total_lines_removed":%s}}' "$dir" "${ADDED:-0}" "${REMOVED:-0}")
     run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "$input" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_REPO_LINE=on "$@" bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY="${DISPLAY_OVERRIDE:-off}" "$@" bash "$SL"
 }
 
 @test "clean repo on main: just the path and branch" {
@@ -101,11 +102,54 @@ loc() {
 @test "the directory falls back to .cwd when workspace.current_dir is absent" {
     cd "$BATS_TEST_TMPDIR"   # not the repo itself, so the $PWD fallback can't mask a miss
     run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "{\"cwd\":\"$REPO\"}" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_REPO_LINE=on bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY=off bash "$SL"
     [[ "$output" == *"/project ⎇  main" ]] || { echo "got: $output"; false; }
 }
 @test "no origin/HEAD and no main: master is the default branch" {
     git remote set-head origin -d 2>/dev/null; git branch -m main master
     git checkout -qb feature; printf 'f1\n' > f.txt; git add f.txt; git commit -qm feature
     loc; assert_has "· vs master +1"
+}
+
+# --- the display file's repo-row names (config/display.conf) ---
+# Everything on: a feature branch with an edit, a commit ahead of upstream,
+# a diff against main and session churn.
+busy() {
+    if [ ! -e f.txt ]; then
+        git checkout -qb feature; printf 'f1\n' > f.txt; git add f.txt; git commit -qm feature; git push -q -u origin feature 2>/dev/null
+        printf 'f2\n' >> f.txt; git commit -qam f2; printf 'edit\n' >> a.txt
+    fi
+    ADDED=4 REMOVED=1 loc "$@"
+}
+# tail STR: the row ends with STR (the tmpdir path in front is long enough to be squeezed)
+tail_is() { [[ "$output" == *"$1" ]] || { echo "got: $output"; echo "expected tail: $1"; return 1; }; }
+@test "hide path: the row starts at the branch" {
+    display_file "hide path"; busy; assert_equal "$output" "⎇  feature · pending +1 ↑1 · vs main +2 · session +4/-1"
+}
+@test "hide branch: the branch, its (repo) tag, pending, upstream and vs go; path and session stay" {
+    busy; git remote set-url origin "$BATS_TEST_TMPDIR/renamed-upstream.git"
+    display_file "hide branch"; busy; tail_is "/project · session +4/-1"; assert_lacks "renamed" "feature"
+}
+@test "hide pending, upstream, vs, session: each alone" {
+    display_file "hide pending"; busy; tail_is "/project ⎇  feature · ↑1 · vs main +2 · session +4/-1"
+    display_file "hide upstream"; busy; tail_is "/project ⎇  feature · pending +1 · vs main +2 · session +4/-1"
+    display_file "hide vs"; busy; tail_is "/project ⎇  feature · pending +1 ↑1 · session +4/-1"
+    display_file "hide session"; busy; tail_is "/project ⎇  feature · pending +1 ↑1 · vs main +2"
+}
+@test "hide pending and upstream together: no cluster, no stray dot" {
+    display_file "hide pending upstream"; busy; tail_is "/project ⎇  feature · vs main +2 · session +4/-1"
+}
+@test "hide path and branch: only the session churn is left, with no leading dot" {
+    display_file "hide path branch"; busy; assert_equal "$output" "· session +4/-1"
+}
+@test "hide repo: no row at all, even with churn" {
+    display_file "hide repo"; git checkout -qb feature
+    run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g"' "{\"workspace\":{\"current_dir\":\"$REPO\"},\"cost\":{\"total_lines_added\":4}}" \
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY="$CFG/display.conf" bash "$SL"
+    assert_equal "$output" ""
+}
+@test "a hidden branch asks git nothing" {
+    mkdir -p "$BATS_TEST_TMPDIR/bin"; printf '#!/bin/sh\necho "$@" >> "%s/git.log"; exit 1\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/bin/git"; chmod +x "$BATS_TEST_TMPDIR/bin/git"
+    display_file "hide branch"; busy PATH="$BATS_TEST_TMPDIR/bin:$PATH"; tail_is "/project · session +4/-1"
+    [ ! -e "$BATS_TEST_TMPDIR/git.log" ]
 }

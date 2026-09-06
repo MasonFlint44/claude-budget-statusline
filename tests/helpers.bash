@@ -70,6 +70,18 @@ fresh_config() {
     CFG="$BATS_TEST_TMPDIR/cfg"
     rm -rf "$CFG"; mkdir -p "$CFG/cache/statusline"
     export CLAUDE_CONFIG_DIR="$CFG"
+    # The render helpers hide the repo row through this display file, so the
+    # budget-line tests see one row; display_file replaces it for a test.
+    printf 'hide repo\n' > "$CFG/display-norepo.conf"
+    DISPLAY_OVERRIDE=""
+}
+# display_file LINE...: a display file in the fresh config with those lines,
+# used by the next renders instead of the repo-hiding default (so the repo
+# row shows unless the lines hide it).
+DISPLAY_OVERRIDE=""
+display_file() {
+    printf '%s\n' "$@" > "$CFG/display.conf"
+    DISPLAY_OVERRIDE="$CFG/display.conf"
 }
 cache_path() { printf '%s/cache/statusline/budget-usage' "$CFG"; }
 # cache_line "TIME" "<today$> <month$> <limit$> <mask> <holiday doms...>" [VAR=value ...]
@@ -83,11 +95,11 @@ cache_line() {
 }
 INPUT_DEFAULT='{"model":{"display_name":"Opus"},"context_window":{"used_percentage":12},"cost":{"total_cost_usd":1.5},"workspace":{"current_dir":"/tmp"}}'
 # render "TIME" [VAR=value ...]   -> $output = the statusline, ANSI stripped; $lines[] per row.
-#   INPUT overrides the JSON; COLUMNS defaults to 120; the repo line is off
-#   unless CLAUDE_BUDGET_REPO_LINE is passed.
+#   INPUT overrides the JSON; COLUMNS defaults to 120; the display file is the
+#   fresh config's repo-hiding one unless display_file wrote another.
 _render_raw() {
     local input="$1" t="$2"; shift 2
-    printf '%s' "$input" | at "$t" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS="${COLUMNS_OVERRIDE:-120}" CLAUDE_BUDGET_REPO_LINE=off "$@" bash "$SL"
+    printf '%s' "$input" | at "$t" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS="${COLUMNS_OVERRIDE:-120}" CLAUDE_BUDGET_DISPLAY="${DISPLAY_OVERRIDE:-$CFG/display-norepo.conf}" "$@" bash "$SL"
 }
 _render() { _render_raw "$@" | strip_ansi; }
 render() { local t="$1"; shift; run _render "${INPUT:-$INPUT_DEFAULT}" "$t" "$@"; }

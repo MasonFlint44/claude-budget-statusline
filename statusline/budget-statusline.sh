@@ -3,8 +3,9 @@
 # same usage endpoint the /usage page renders (real billed dollars; the monthly
 # limit comes from the org). Plus model, effort, context, session cost, git.
 #
-# Ships as: this file + config/calendar.conf (see README.md for install and
-# prerequisites). `budget-statusline.sh --calendar [YEAR]` prints the calendar.
+# Ships as: this file + config/calendar.conf + config/display.conf (see
+# README.md for install and prerequisites). `budget-statusline.sh --calendar
+# [YEAR]` prints the calendar; `--display` lists the elements and which show.
 #
 #   day: today's spend vs today's allowance, where the allowance divides the
 #        month's REMAINING budget (as of this morning) evenly over the
@@ -41,7 +42,7 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.3.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.4.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 # Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
 # thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
 # 3.2) gets one clear line instead of a syntax error further down. Every
@@ -69,6 +70,9 @@ days_in_month() {  # YYYY MM -> DIM
 # The calendar: CLAUDE_BUDGET_CALENDAR if set (a path, or off), else config/calendar.conf.
 CALENDAR="${CLAUDE_BUDGET_CALENDAR:-$SCRIPT_DIR/config/calendar.conf}"
 case "${CALENDAR,,}" in off|none|no|0|false) CALENDAR="" ;; esac   # no file: workdays mon-fri, no holidays
+# Which elements show: CLAUDE_BUDGET_DISPLAY if set (a path, or off), else config/display.conf.
+DISPLAY_SRC="CLAUDE_BUDGET_DISPLAY=${CLAUDE_BUDGET_DISPLAY:-}"
+DISPLAY_FILE="${CLAUDE_BUDGET_DISPLAY:-$SCRIPT_DIR/config/display.conf}"
 
 # --- Calendar (config/calendar.conf) ---
 # Which days of the week you work and which dates are holidays, so the daily
@@ -372,25 +376,118 @@ count_workdays() {
     WD=$n
 }
 
+# --- Display (config/display.conf) ---
+# Which elements render. "hide NAME ..." lines (names space or comma
+# separated, case-insensitive, "#" starts a comment); hides accumulate, and
+# hiding an element hides everything that hangs off it. No file: everything
+# shows. Nothing else is configurable: the rows and their order are fixed.
+# The names, in the order --display lists them, each with the element it
+# needs and a description. display_info NAME -> D_NEEDS, D_WHAT (1 = unknown).
+DISPLAY_NAMES=(model effort ctx cost cache day month pace age repo path branch pending upstream vs session)
+display_info() {
+    case "$1" in
+        model)    D_NEEDS="";       D_WHAT="the model name (Opus)" ;;
+        effort)   D_NEEDS=model;    D_WHAT="the effort level after the model (· high)" ;;
+        ctx)      D_NEEDS="";       D_WHAT="the context bar and its percentage (ctx:█████░░ 43%)" ;;
+        cost)     D_NEEDS=ctx;      D_WHAT="the session cost after the context bar (\$3.72)" ;;
+        cache)    D_NEEDS=ctx;      D_WHAT="the prompt-cache cue (· cache 42m, · cache cold ↻38k)" ;;
+        day)      D_NEEDS="";       D_WHAT="the day bar with its spend and allowance (day:███░░ 64% \$9.40/\$15)" ;;
+        month)    D_NEEDS="";       D_WHAT="the month bar with its spend, limit and overage (month:██│█░ 36% \$143/\$400 +\$50)" ;;
+        pace)     D_NEEDS=month;    D_WHAT="the pace tick in the month bar (│)" ;;
+        age)      D_NEEDS="day or month"; D_WHAT="the stale-fetch tag after the budget bars (·12m)" ;;
+        repo)     D_NEEDS="";       D_WHAT="the whole repository row" ;;
+        path)     D_NEEDS=repo;     D_WHAT="the working directory (~/claude-budget-statusline)" ;;
+        branch)   D_NEEDS=repo;     D_WHAT="the branch, with the repository name when the directory is named differently (⎇  feature/preview)" ;;
+        pending)  D_NEEDS=branch;   D_WHAT="uncommitted lines (· pending +16)" ;;
+        upstream) D_NEEDS=branch;   D_WHAT="commits ahead of and behind upstream (↑1↓2)" ;;
+        vs)       D_NEEDS=branch;   D_WHAT="lines changed against the default branch (· vs main +30)" ;;
+        session)  D_NEEDS=repo;     D_WHAT="lines Claude Code has edited this session (· session +118/-27)" ;;
+        *)        D_NEEDS=""; D_WHAT=""; return 1 ;;
+    esac
+}
+# read_display FILE: hidden[NAME] = "file" for a name the file hides, or
+# "needs X" for one hidden because X is; display_bad = the lines that did not
+# parse. An absent or unreadable file hides nothing.
+declare -A hidden=(); display_bad=()
+read_display() {
+    local line kind rest tok toks lineno=0 n
+    hidden=(); display_bad=()
+    [ -n "$1" ] && [ -r "$1" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        lineno=$((lineno + 1))
+        line="${line%$'\r'}"; line="${line#$'\xef\xbb\xbf'}"; line="${line%%#*}"
+        read -r kind rest <<< "$line"
+        [ -n "$kind" ] || continue
+        case "${kind,,}" in
+            hide)
+                IFS=', ' read -ra toks <<< "$rest"
+                n=0
+                for tok in "${toks[@]}"; do
+                    [ -n "$tok" ] || continue
+                    tok="${tok,,}"; n=$((n + 1))
+                    if display_info "$tok"; then hidden[$tok]="file"
+                    else display_bad+=("line $lineno: unknown element '$tok'"); fi
+                done
+                [ "$n" -gt 0 ] || display_bad+=("line $lineno: hide names nothing") ;;
+            *) display_bad+=("line $lineno: unknown keyword '$kind' (only hide)") ;;
+        esac
+    done < "$1"
+    # Dependents follow their parents, parents before children.
+    for n in effort cost cache pace path branch session pending upstream vs; do
+        display_info "$n"
+        [ -z "${hidden[$n]+x}" ] && [ -n "${hidden[$D_NEEDS]+x}" ] && hidden[$n]="needs $D_NEEDS"
+    done
+    [ -z "${hidden[age]+x}" ] && [ -n "${hidden[day]+x}" ] && [ -n "${hidden[month]+x}" ] && hidden[age]="needs day or month"
+    return 0
+}
+shown() { [ -z "${hidden[$1]+x}" ]; }
+# display_where -> WHERE: the display file in use, or why there is none.
+display_where() {
+    if [ -z "$DISPLAY_FILE" ]; then WHERE="off ($DISPLAY_SRC): everything shown"
+    elif [ ! -r "$DISPLAY_FILE" ]; then WHERE="no file at $DISPLAY_FILE: everything shown"
+    else WHERE="$DISPLAY_FILE"; fi
+}
+
 usage() {
     cat <<EOF
 usage: budget-statusline.sh                 render the statusline from Claude Code's JSON on stdin
        budget-statusline.sh --calendar [YYYY] list the calendar in use: work week, observed holidays,
                                             this month's workday counts (default: the current year)
+       budget-statusline.sh --display [FILE]  list the elements: which show, which the display
+                                            file hides (default: the file in use)
        budget-statusline.sh --doctor          explain the budget bars: credentials, one live fetch of
                                             the usage endpoint, the limit and the cache; exit 1 if
                                             the bars would be hidden
        budget-statusline.sh --help
 Knobs (environment): CLAUDE_BUDGET_MONTHLY_LIMIT CLAUDE_BUDGET_TZ CLAUDE_BUDGET_REFRESH
-                     CLAUDE_BUDGET_CALENDAR CLAUDE_BUDGET_REPO_LINE CLAUDE_CONFIG_DIR
+                     CLAUDE_BUDGET_CALENDAR CLAUDE_BUDGET_DISPLAY CLAUDE_CONFIG_DIR
 budget-statusline $VERSION  https://github.com/MasonFlint44/claude-budget-statusline
 EOF
 }
 case "${1:-}" in
-    --calendar|--doctor|'') ;;
+    --calendar|--doctor|--display|'') ;;
     --help|-h) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
 esac
+if [ "${1:-}" = "--display" ]; then
+    [ $# -le 2 ] || { usage >&2; exit 2; }
+    [ $# -eq 2 ] && { DISPLAY_FILE="$2"; DISPLAY_SRC="--display $2"; }
+fi
+case "${DISPLAY_FILE,,}" in off|none|no|0|false) DISPLAY_FILE="" ;; esac   # no file: everything shown
+read_display "$DISPLAY_FILE"
+if [ "${1:-}" = "--display" ]; then
+    display_where; echo "display: $WHERE"
+    for n in "${DISPLAY_NAMES[@]}"; do
+        display_info "$n"
+        case "${hidden[$n]:-}" in '') state=on ;; file) state=off ;; *) state="off (${hidden[$n]})" ;; esac
+        printf '%-9s %-25s%s\n' "$n" "$state" "$D_WHAT"
+    done
+    for line in "${display_bad[@]}"; do echo "display: skipping $line" >&2; done
+    exit 0
+fi
+# Both budget bars hidden: nothing to fetch, so no token is read, no request
+# made, no cache or lock written.
+budget_wanted=1; shown day || shown month || budget_wanted=0
 if [ "${1:-}" = "--calendar" ]; then
     case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) [ $# -le 2 ] ;; *) false ;; esac || { usage >&2; exit 2; }
     bstamp '%Y %m %e %u %B' stamp
@@ -611,7 +708,7 @@ HOLD_FILE="$CACHE_DIR/budget-usage.hold"   # epoch before which no fetch is atte
 REFRESH_INTERVAL="${CLAUDE_BUDGET_REFRESH:-60}"   # seconds between usage fetches
 is_int "$REFRESH_INTERVAL" || REFRESH_INTERVAL=60
 [ "$REFRESH_INTERVAL" -ge 10 ] || REFRESH_INTERVAL=10
-[ -d "$CACHE_DIR" ] || mkdir -p "$CACHE_DIR" 2>/dev/null
+[ "$budget_wanted" = 1 ] && { [ -d "$CACHE_DIR" ] || mkdir -p "$CACHE_DIR" 2>/dev/null; }
 
 # The clock, from the printf builtin: epoch now, and on the budget clock
 # today's date, day of month, day of week and year-month.
@@ -769,6 +866,15 @@ if [ "${1:-}" = "--doctor" ]; then
     days_in_month "$cy" "${today:5:2}"; hol=$(holidays_in_month "$cy" "${today:5:2}")
     count_workdays "$wd_mask" "$hol" "$dom" "$dow" "$DIM"
     doc "this month:" "$cmonth $cy, $WD workday(s) left including today"
+    display_where
+    if [ ${#hidden[@]} -eq 0 ]; then
+        case "$WHERE" in *": everything shown") doc "display:" "${WHERE%: everything shown}: all elements shown" ;; *) doc "display:" "$WHERE: all elements shown" ;; esac
+    else
+        hid=""; for n in "${DISPLAY_NAMES[@]}"; do shown "$n" || hid="$hid${hid:+, }$n"; done
+        note=""; [ ${#display_bad[@]} -gt 0 ] && note=", ${#display_bad[@]} line(s) not parsed (see --display)"
+        doc "display:" "$DISPLAY_FILE: hidden $hid$note"
+    fi
+    if [ "$budget_wanted" = 0 ]; then doc "bars:" "hidden by $DISPLAY_FILE (day and month both hidden), so nothing is fetched"; exit 0; fi
     read_token || fail "credentials:" "$TOK_ERR"
     left=$(( TOK_EXP / 1000 - now ))
     doc "credentials:" "$TOK_SRC: OAuth token present${TOK_EXP:+, expires in $(( left / 3600 ))h $(( left % 3600 / 60 ))m}"
@@ -802,11 +908,11 @@ fi
 # Read the cache. Its age comes from the stamp inside the line, not the file's
 # mtime, so nothing here depends on stat(1).
 day_cost=""; mo_cost=""; hol_doms=""; wd_mask=""; cache_age=""
-if [ -f "$CACHE_FILE" ]; then
+if [ "$budget_wanted" = 1 ] && [ -f "$CACHE_FILE" ]; then
     read -r c_date c_stamp c_day c_mo c_lim c_mask c_hol < "$CACHE_FILE" 2>/dev/null
     # Yesterday's cache would misreport its daily total as today's: hide instead.
-    # A garbled line (non-numeric fields, or one from before the workday mask
-    # existed) is treated as no cache, so the next render refreshes it.
+    # A garbled line (non-numeric fields, a malformed workday mask) is treated
+    # as no cache, so the next render refreshes it.
     if [ "$c_date" = "$today" ] && is_num "$c_day" && is_num "$c_mo" && is_mask "$c_mask"; then
         is_int "$c_stamp" && cache_age=$(( now - c_stamp ))
         day_cost="$c_day"; mo_cost="$c_mo"; wd_mask="$c_mask"; hol_doms="$c_hol"
@@ -818,7 +924,7 @@ fi
 # older than the interval (a future stamp = clock skew, also stale), and no
 # hold from a recent failed fetch.
 hold_until=""; { read -r hold_until < "$HOLD_FILE"; } 2>/dev/null; is_int "$hold_until" || hold_until=0
-if { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; } \
+if [ "$budget_wanted" = 1 ] && { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; } \
    && [ "$now" -ge "$hold_until" ]; then
     # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge
     # permanently. The lock's own stamp file dates it; rename-then-remove so
@@ -867,6 +973,19 @@ if [ -n "$day_cost" ] && is_pos "$MONTHLY_LIMIT"; then
         printf "%d %.6g %d %.6g", int(dp + 0.5), allow, int(mp + 0.5), over   # half-up
     }')"
 fi
+
+# --- What the display file hides ---
+# Blanking a piece here takes the same path as the piece being absent from
+# the input or the cache: the row re-flows around it and its dependents go
+# with it (read_display already marked those hidden).
+shown model  || model=""
+shown effort || effort=""
+shown ctx    || used_pct=""
+shown cost   || session_cost=""
+shown cache  || pc_observed=""
+shown day    || day_pct=""
+shown month  || { mo_pct=""; mo_over=0; }
+shown pace   || pace_total=0
 
 # --- Responsive bar widths: bars fill the terminal width ---
 # The statusline runs as a piped command (no controlling TTY), but Claude Code
@@ -918,7 +1037,7 @@ fi
 # STALE_AFTER seconds a dim age tag follows the bars: ·12m, ·3h.
 STALE_AFTER=300
 stale_str=""
-if [ "$have_budget_figures" = 1 ] && is_int "$cache_age" && [ "$cache_age" -ge "$STALE_AFTER" ]; then
+if shown age && [ "$have_budget_figures" = 1 ] && is_int "$cache_age" && [ "$cache_age" -ge "$STALE_AFTER" ]; then
     if [ "$cache_age" -lt 3600 ]; then stale_str="·$(( cache_age / 60 ))m"; else stale_str="·$(( cache_age / 3600 ))h"; fi
 fi
 
@@ -1074,7 +1193,7 @@ parse_shortstat() {
 # presence IS the dirty flag. "behind" is as of the last fetch -- we never
 # fetch here. Not width-managed: the TUI truncates rows on its own.
 build_locline() {
-    local dir="${cur_dir:-$PWD}"
+    local dir="${cur_dir:-$PWD}" s=""
     # ~-shorten; past 35 chars squeeze middle components fish-style (~/g/project)
     # so a deep cwd can't push the interesting right side of the line off-screen.
     local disp="${dir/#$HOME/\~}"
@@ -1084,15 +1203,18 @@ build_locline() {
         for ((i = 1; i < n - 1; i++)); do o="$o/${parts[i]:0:1}"; done
         disp="$o/${parts[n-1]}"
     fi
-    local s="${CLR_DIM}${disp}${CLR_RESET}"
+    shown path && s="${CLR_DIM}${disp}${CLR_RESET}"
 
-    local branch shown a r pair
-    branch=$(git -C "$dir" branch --show-current 2>/dev/null)
-    [ -z "$branch" ] && branch=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)
+    # Every group here follows the display file; with the branch hidden its
+    # dependents (pending, upstream, vs) are too, so git is not asked at all.
+    local branch name a r pair
+    branch=""
+    shown branch && branch=$(git -C "$dir" branch --show-current 2>/dev/null)
+    shown branch && [ -z "$branch" ] && branch=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)
     if [ -n "$branch" ]; then
         # Cap the shown name so a long branch can't evict the groups after it.
-        shown="$branch"
-        [ ${#shown} -gt 26 ] && shown="${shown:0:24}.."
+        name="$branch"
+        [ ${#name} -gt 26 ] && name="${name:0:24}.."
         # Remote repo name, dim, only when it differs from the repo root's
         # dirname (e.g. a checkout whose directory is named differently from the repo).
         local top repo
@@ -1102,27 +1224,29 @@ build_locline() {
         [ -n "$repo" ] && [ "$repo" != "${top##*/}" ] && s="$s ${CLR_DIM}(${repo})${CLR_RESET}"
 
         # Two spaces after ⎇ — the glyph's overhang visually eats one.
-        s="$s ⎇  ${shown}"
+        s="$s ⎇  ${name}"
 
-        # pending: uncommitted lines vs HEAD + lines in untracked files
-        read -r a r <<< "$(git -C "$dir" diff --shortstat HEAD 2>/dev/null | parse_shortstat)"
-        local u
-        # Only text files under 1 MB count, so a stray build artifact or a
-        # not-yet-ignored data dump can't turn every render into a disk scan.
-        # ls-files emits repo-relative paths, so the pipeline runs from the repo.
-        # Cheap check first: the pipeline runs only when something is untracked.
-        u=0; local first=""
-        read -r -d '' first < <(git -C "$dir" ls-files --others --exclude-standard -z 2>/dev/null)
-        [ -n "$first" ] && u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null \
-               | xargs -0 sh -c 'find "$@" -maxdepth 0 -type f -size -1024k -print0' sh 2>/dev/null \
-               | xargs -0 grep -Ic '' 2>/dev/null) | awk -F: '{s+=$NF} END{print s+0}' )
-        pair=$(fmt_pair $(( a + u )) "$r" hot)
         local cluster=""
-        [ -n "$pair" ] && cluster="${CLR_DIM}pending${CLR_RESET} $pair"
+        if shown pending; then
+            # pending: uncommitted lines vs HEAD + lines in untracked files
+            read -r a r <<< "$(git -C "$dir" diff --shortstat HEAD 2>/dev/null | parse_shortstat)"
+            local u
+            # Only text files under 1 MB count, so a stray build artifact or a
+            # not-yet-ignored data dump can't turn every render into a disk scan.
+            # ls-files emits repo-relative paths, so the pipeline runs from the repo.
+            # Cheap check first: the pipeline runs only when something is untracked.
+            u=0; local first=""
+            read -r -d '' first < <(git -C "$dir" ls-files --others --exclude-standard -z 2>/dev/null)
+            [ -n "$first" ] && u=$( (cd "$dir" 2>/dev/null && git ls-files --others --exclude-standard -z 2>/dev/null \
+                   | xargs -0 sh -c 'find "$@" -maxdepth 0 -type f -size -1024k -print0' sh 2>/dev/null \
+                   | xargs -0 grep -Ic '' 2>/dev/null) | awk -F: '{s+=$NF} END{print s+0}' )
+            pair=$(fmt_pair $(( a + u )) "$r" hot)
+            [ -n "$pair" ] && cluster="${CLR_DIM}pending${CLR_RESET} $pair"
+        fi
 
         # ahead/behind upstream
         local behind ahead arrows=""
-        read -r behind ahead <<< "$(git -C "$dir" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null)"
+        shown upstream && read -r behind ahead <<< "$(git -C "$dir" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null)"
         [ "${ahead:-0}" -gt 0 ] 2>/dev/null && arrows="↑$ahead"
         [ "${behind:-0}" -gt 0 ] 2>/dev/null && arrows="$arrows↓$behind"
         [ -n "$arrows" ] && cluster="${cluster:+$cluster }$arrows"
@@ -1139,7 +1263,7 @@ build_locline() {
             if git -C "$dir" show-ref --verify -q refs/heads/main; then def=main
             elif git -C "$dir" show-ref --verify -q refs/heads/master; then def=master; fi
         fi
-        if [ -n "$def" ] && [ "$branch" != "$def" ]; then
+        if shown vs && [ -n "$def" ] && [ "$branch" != "$def" ]; then
             # A clone that only checked out a feature branch has origin/main but no local main.
             local defref="$def"
             git -C "$dir" show-ref --verify -q "refs/heads/$def" || defref="origin/$def"
@@ -1149,9 +1273,9 @@ build_locline() {
         fi
     fi
 
-    pair=$(fmt_pair "$lines_added" "$lines_removed" dim)
+    pair=""; shown session && pair=$(fmt_pair "$lines_added" "$lines_removed" dim)
     [ -n "$pair" ] && s="$s ${CLR_DIM}· session${CLR_RESET} $pair"
-    printf '%s' "$s"
+    printf '%s' "${s# }"
 }
 join_parts() {  # join non-empty args with " | "
     local out="" p
@@ -1201,12 +1325,10 @@ else
     if [ -n "$line2" ]; then [ -n "$out" ] && out="$out"$'\n'"$line2" || out="$line2"; fi
 fi
 
-# Location + git + churn get their own final row unless switched off.
-repo_line="${CLAUDE_BUDGET_REPO_LINE:-on}"
-case "${repo_line,,}" in
-    off|none|no|0|false) ;;
-    *) loc_line=$(build_locline)
-       [ -n "$loc_line" ] && out="$out"$'\n'"$loc_line" ;;
-esac
+# Location + git + churn get their own final row unless the display file hides it.
+if shown repo; then
+    loc_line=$(build_locline)
+    if [ -n "$loc_line" ]; then [ -n "$out" ] && out="$out"$'\n'"$loc_line" || out="$loc_line"; fi
+fi
 
 printf '%s' "$out"

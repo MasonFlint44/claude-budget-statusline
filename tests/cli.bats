@@ -23,3 +23,7 @@ load helpers
     ! head -n "$n" "$SL" | grep -Eq 'mapfile|\$\{[a-zA-Z_]+,,\}|%\(.*\)T|local -A|read -d|\[\[ '
     grep -q 'brew install bash, then /budget-statusline-install' "$SL"
 }
+@test "--display takes at most one argument" {
+    run at "$NOW" bash "$SL" --display a b; assert_status 2; assert_has "usage:"
+    run at "$NOW" bash "$SL" --display off; assert_status 0; assert_has "everything shown"
+}

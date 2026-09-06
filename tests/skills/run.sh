@@ -55,7 +55,7 @@ expect_no_warnings() {  # the installed calendar parses clean
 scaffold_installed() {
     mkdir -p "$CFG/statusline/config"
     cp "$REPO/statusline/budget-statusline.sh" "$CFG/statusline/"
-    cp "$REPO/statusline/config/calendar.conf" "$CFG/statusline/config/"
+    cp "$REPO/statusline/config/calendar.conf" "$REPO/statusline/config/display.conf" "$CFG/statusline/config/"
     printf '{"statusLine":{"type":"command","command":"%sbash %s/statusline/budget-statusline.sh"}}\n' "${1:-}" "$CFG" > "$CFG/settings.json"
 }
 
