@@ -4,6 +4,13 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.6.2 — 2026-09-06
+
+- Doctor skill: documents the doctor's third ending, `bars: hidden by
+  <display file>`, and the display line's parse warnings, routing both to
+  the display skill. Calendar skill: writes without a confirmation round
+  when the user has already said not to ask, as the display skill does.
+
 ## 2.6.1 — 2026-09-06
 
 - Skill descriptions tuned against the trigger evals on sonnet (every skill

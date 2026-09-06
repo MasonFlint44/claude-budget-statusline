@@ -45,7 +45,7 @@ Yearly rules follow the observe policy. `once` lines are literal, so a PTO range
 
    When the work week changes, check the `observe` line with the user: `nearest` adapts automatically, but explicit `DOW=MODE` overrides may now name workdays (the listing warns) or be missing for the new off days.
 
-3. **Confirm before writing.** Show the exact lines to add, change or remove, and where in the file. Write only after the user agrees. Append `once` lines at the end of the file; keep `workdays` and `observe` near the top where the shipped file has them.
+3. **Confirm before writing.** Show the exact lines to add, change or remove, and where in the file. Write only after the user agrees, unless the user has already said not to ask. Append `once` lines at the end of the file; keep `workdays` and `observe` near the top where the shipped file has them.
 
 4. **Verify.** Rerun the listing from step 1 and show the output. Every warning must be either resolved or explained; a new entry must appear on the expected date with the expected tag. If something is wrong, fix the line and rerun.
 
@@ -54,6 +54,6 @@ Yearly rules follow the observe policy. `once` lines are literal, so a PTO range
 ## Do not
 
 - Do not edit the plugin's copy of `calendar.conf` or the script itself. Edit the path the listing prints.
-- Do not write without showing the exact lines first.
+- Do not write without showing the exact lines first (unless told not to ask).
 - Do not invent holidays the user did not ask for, and do not rewrite lines that are not part of the request.
 - Do not skip the verification listing.
