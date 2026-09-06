@@ -77,3 +77,11 @@ SH
     printf '#!/bin/sh\nexit 44\n' > "$BATS_TEST_TMPDIR/bin/security"
     doctor PATH="$BATS_TEST_TMPDIR/bin:$PATH" OSTYPE=darwin24; assert_status 1; assert_has "no credentials file and no Keychain item"
 }
+@test "missing jq is the first thing reported, before any credentials guess" {
+    mkdir -p "$BATS_TEST_TMPDIR/nojq"; for t in bash curl awk cat env sed grep sort mkdir rm mv cut tr timeout git faketime; do p=$(command -v $t) && ln -s "$p" "$BATS_TEST_TMPDIR/nojq/$t"; done
+    ln -s "$TESTS_DIR/bin/curl" "$BATS_TEST_TMPDIR/nojq/curl" 2>/dev/null || true
+    doctor PATH="$BATS_TEST_TMPDIR/nojq"; assert_status 1; assert_has "tools:        missing: jq" "bars:         hidden"; assert_lacks "credentials:"
+}
+@test "the tools line names bash and the optional git" {
+    doctor; assert_has "tools:        bash $BASH_VERSION, jq, curl, awk"
+}

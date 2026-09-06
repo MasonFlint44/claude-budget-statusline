@@ -693,6 +693,14 @@ if [ "${1:-}" = "--doctor" ]; then
     doc() { printf '%-14s%s\n' "$1" "$2"; }
     fail() { doc "$1" "$2"; doc "bars:" "hidden"; exit 1; }
     doc "version:" "budget-statusline $VERSION"
+    # Tools first: without jq every later step would misreport its cause.
+    missing=""; for t in jq curl awk; do command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; done
+    [ -z "$missing" ] || fail "tools:" "missing:${missing} (install them; on Windows Git Bash brings curl and awk, jq is winget install jqlang.jq)"
+    if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
+        fail "tools:" "bash $BASH_VERSION is too old: 4.4+ needed (macOS: brew install bash and name it in the statusLine command)"
+    fi
+    gitnote=""; command -v git >/dev/null 2>&1 || gitnote=", no git (the branch and diff line stays blank)"
+    doc "tools:" "bash $BASH_VERSION, jq, curl, awk$gitnote"
     doc "config dir:" "$CLAUDE_DIR"
     bstamp '%Y %B' stamp; read -r cy cmonth <<< "$stamp"
     doc "budget clock:" "${BUDGET_TZ:-local time}, today $today"

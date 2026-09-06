@@ -30,12 +30,13 @@ CASES=("$@"); [ ${#CASES[@]} -gt 0 ] || mapfile -t CASES < <(cd "$HERE/cases" &&
 REAL_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 STAMP=$(date +%Y%m%d-%H%M%S); RES="$HERE/results/$STAMP"; mkdir -p "$RES"
 TOOLS="Skill,Bash,Read,Edit,Write,Glob,Grep,MultiEdit"
-# Known limit: Claude Code always asks before a write to settings.json, an
-# allow rule does not cover it, and dontAsk turns the question into a denial,
-# so install-fresh (the one case that must create the statusLine entry)
-# cannot pass under this mode; the model rightly stops rather than route
-# around the guard. Running with --permission-mode bypassPermissions lifts
-# that, at the cost of no guard at all for the run.
+# Permissions are bypassed for the run: Claude Code always asks before a
+# write to settings.json (an allow rule does not cover it), and a headless
+# run cannot answer, so the install cases could never wire statusLine under
+# dontAsk. Test-only: the shipped plugin and the installer run under the
+# user's normal permission prompts. The run still works inside a throwaway
+# config dir and cwd; the model can reach the rest of the machine through
+# Bash either way, as it could under dontAsk with Bash allowed.
 
 # --- check helpers (available to check.sh) ---
 fail=0
@@ -71,7 +72,7 @@ for case in "${CASES[@]}"; do
         . "$CDIR/setup.sh"
         RESULT="$RES/$case-$run.json"
         ( cd "$WORK/cwd" && CLAUDE_CONFIG_DIR="$CFG" claude -p "$(cat "$CDIR/prompt")" --plugin-dir "$REPO" --model "$MODEL" \
-              --output-format json --permission-mode dontAsk --allowedTools "$TOOLS" --max-turns 40 --max-budget-usd 2 \
+              --output-format json --permission-mode bypassPermissions --allowedTools "$TOOLS" --max-turns 40 --max-budget-usd 2 \
               --setting-sources user < /dev/null ) > "$RESULT" 2> "$RES/$case-$run.stderr"
         rc=$?
         # A refreshed token goes back where the CLI expects it next time.

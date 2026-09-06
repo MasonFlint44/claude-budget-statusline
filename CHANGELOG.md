@@ -4,6 +4,13 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## Unreleased
+
+- `--doctor` checks the tools first: jq, curl and awk present, bash 4.4+,
+  git optional. A missing jq used to surface as a bogus "no OAuth token".
+- The headless skill runner bypasses permission prompts (test only), so the
+  fresh-install case can wire `settings.json`.
+
 ## 2.2.1 — 2026-09-05
 
 - `/install-statusline` is model-invocable again: 2.2.0 marked it
