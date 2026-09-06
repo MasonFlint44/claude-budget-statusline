@@ -30,6 +30,12 @@ CASES=("$@"); [ ${#CASES[@]} -gt 0 ] || mapfile -t CASES < <(cd "$HERE/cases" &&
 REAL_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 STAMP=$(date +%Y%m%d-%H%M%S); RES="$HERE/results/$STAMP"; mkdir -p "$RES"
 TOOLS="Skill,Bash,Read,Edit,Write,Glob,Grep,MultiEdit"
+# Known limit: Claude Code always asks before a write to settings.json, an
+# allow rule does not cover it, and dontAsk turns the question into a denial,
+# so install-fresh (the one case that must create the statusLine entry)
+# cannot pass under this mode; the model rightly stops rather than route
+# around the guard. Running with --permission-mode bypassPermissions lifts
+# that, at the cost of no guard at all for the run.
 
 # --- check helpers (available to check.sh) ---
 fail=0
@@ -81,6 +87,8 @@ for case in "${CASES[@]}"; do
         if [ "$fail" = 0 ]; then passed=$((passed + 1)); verdict=PASS; else verdict=FAIL; fi
         printf '%-4s %-28s run %s  %s turns  $%s\n' "$verdict" "$case" "$run" "$turns" "$cost"
         cost_all=$(awk -v a="$cost_all" -v b="${cost:-0}" 'BEGIN{printf "%.4f", a + b}')
+        # The session transcript, for reading how the run went wrong.
+        find "$CFG/projects" -name '*.jsonl' -exec cp {} "$RES/$case-$run.transcript.jsonl" \; 2>/dev/null
         rm -rf "$WORK"
     done
 done
