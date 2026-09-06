@@ -1,5 +1,5 @@
 ---
-name: budget-calendar
+name: budget-statusline-calendar
 description: View or edit the budget statusline's calendar — the work week, holidays, PTO and closures that the daily allowance is spread over. Use when the user wants to add time off ("I'm off next week", "add PTO"), change which days they work ("we work Sunday to Thursday", "I have Fridays off"), add or remove a holiday, change how holidays on non-workdays are observed, or see the calendar ("show my budget calendar", "how many workdays are left this month").
 ---
 
@@ -9,7 +9,7 @@ The statusline spreads the month's remaining budget over the remaining workdays,
 
 ## Where the file is
 
-Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the installed script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_CALENDAR=...` or `CLAUDE_BUDGET_TZ=...` before it. Run the listing with exactly those knobs and that script path, and it prints `calendar: <path>` on its first line: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/calendar.conf`. Do not edit the plugin's own `statusline/config/calendar.conf`: it is the shipped default and is replaced on every plugin update. If the listing reports no file or the script is not installed, say so and point the user at `/install-statusline`.
+Read `statusLine.command` in `$CFG/settings.json` (`CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`). It names the installed script, normally `$CFG/statusline/budget-statusline.sh`, and may carry inline knobs such as `CLAUDE_BUDGET_CALENDAR=...` or `CLAUDE_BUDGET_TZ=...` before it. Run the listing with exactly those knobs and that script path, and it prints `calendar: <path>` on its first line: **that path is the file to edit.** Without an override it is `$CFG/statusline/config/calendar.conf`. Do not edit the plugin's own `statusline/config/calendar.conf`: it is the shipped default and is replaced on every plugin update. If the listing reports no file or the script is not installed, say so and point the user at `/budget-statusline-install`.
 
 ## The grammar
 

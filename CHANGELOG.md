@@ -4,10 +4,16 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
-## Unreleased
+## 2.2.2 — 2026-09-05
 
-- `--doctor` checks the tools first: jq, curl and awk present, bash 4.4+,
-  git optional. A missing jq used to surface as a bogus "no OAuth token".
+- Skills renamed with the plugin's name as prefix, so they cannot collide
+  with another statusline plugin's: `/budget-statusline-install`,
+  `/budget-statusline-calendar` (was `/budget-calendar`),
+  `/budget-statusline-doctor` (was `/budget-doctor`).
+- `--doctor` checks the tools first: jq, curl, awk and readlink present,
+  bash 4.4+, git optional, and names the install command for the platform
+  (apt, dnf, pacman, zypper, apk, brew, winget). A missing jq used to
+  surface as a bogus "no OAuth token".
 - The headless skill runner bypasses permission prompts (test only), so the
   fresh-install case can wire `settings.json`.
 

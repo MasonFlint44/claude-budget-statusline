@@ -47,7 +47,7 @@ billing, where the `/usage` page shows dollars; see Prerequisites.
 ```
 /plugin marketplace add MasonFlint44/claude-statuslines
 /plugin install budget-statusline@claude-statuslines
-/install-statusline
+/budget-statusline-install
 ```
 
 The install skill copies the files to `~/.claude/statusline/`, adds the
@@ -119,7 +119,7 @@ observed on the previous December 30 or 31 appears under the new year, the
 way official calendars print it. The workday math itself goes by the observed
 date.
 
-The `/budget-calendar` skill edits the installed calendar for you: "add PTO
+The `/budget-statusline-calendar` skill edits the installed calendar for you: "add PTO
 next week", "we work Sunday to Thursday", "show my budget calendar".
 
 ## When the bars are blank
@@ -134,7 +134,7 @@ runs the refresh in the foreground one step at a time (credentials, a live
 fetch of the usage endpoint, the limit, the cache) and stops at the first
 failing step with the reason and the fix; exit 1 means the bars would stay
 hidden. Run it with any knobs your `statusLine` command sets. The
-`/budget-doctor` skill does the same from inside Claude Code ("my budget
+`/budget-statusline-doctor` skill does the same from inside Claude Code ("my budget
 bars are blank"), finding the installed script for you. `--help` lists the
 flags and knobs.
 
@@ -238,7 +238,7 @@ CI runs the suite and `shellcheck` on every push. `docs/preview.py`
 regenerates the README preview from the script itself (python3, git and
 libfaketime), so the picture cannot drift from the code.
 
-The two skills are prose for the model, so they are checked differently:
+The three skills are prose for the model, so they are checked differently:
 `tests/skills/run.sh` runs each case under `tests/skills/cases/` through
 headless Claude (`claude -p`) with this plugin loaded and a throwaway config
 dir, then checks the files the skill left behind (the calendar line landed

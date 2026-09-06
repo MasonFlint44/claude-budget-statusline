@@ -78,10 +78,20 @@ SH
     doctor PATH="$BATS_TEST_TMPDIR/bin:$PATH" OSTYPE=darwin24; assert_status 1; assert_has "no credentials file and no Keychain item"
 }
 @test "missing jq is the first thing reported, before any credentials guess" {
-    mkdir -p "$BATS_TEST_TMPDIR/nojq"; for t in bash curl awk cat env sed grep sort mkdir rm mv cut tr timeout git faketime; do p=$(command -v $t) && ln -s "$p" "$BATS_TEST_TMPDIR/nojq/$t"; done
+    mkdir -p "$BATS_TEST_TMPDIR/nojq"; for t in bash curl awk cat env sed grep sort mkdir rm mv cut tr timeout git faketime readlink apt-get; do p=$(command -v $t) && ln -s "$p" "$BATS_TEST_TMPDIR/nojq/$t"; done
     ln -s "$TESTS_DIR/bin/curl" "$BATS_TEST_TMPDIR/nojq/curl" 2>/dev/null || true
     doctor PATH="$BATS_TEST_TMPDIR/nojq"; assert_status 1; assert_has "tools:        missing: jq" "bars:         hidden"; assert_lacks "credentials:"
+    # the hint follows the platform: this box has apt-get; macOS and Git Bash by OSTYPE
+    assert_has "Install: sudo apt install jq"
+    doctor PATH="$BATS_TEST_TMPDIR/nojq" OSTYPE=darwin24; assert_has "Install: brew install jq"
+    doctor PATH="$BATS_TEST_TMPDIR/nojq" OSTYPE=msys; assert_has "Install: winget install jqlang.jq (in Git Bash, or PowerShell)"
+    # no package manager found at all: a generic hint
+    rm "$BATS_TEST_TMPDIR/nojq/apt-get"
+    doctor PATH="$BATS_TEST_TMPDIR/nojq" OSTYPE=linux-gnu; assert_has "Install: install jq with your package manager"
+    # two tools missing: one command names both
+    rm "$BATS_TEST_TMPDIR/nojq/curl"; ln -s "$(command -v apt-get)" "$BATS_TEST_TMPDIR/nojq/apt-get"
+    doctor PATH="$BATS_TEST_TMPDIR/nojq"; assert_has "missing: jq curl. Install: sudo apt install jq curl"
 }
 @test "the tools line names bash and the optional git" {
-    doctor; assert_has "tools:        bash $BASH_VERSION, jq, curl, awk"
+    doctor; assert_has "tools:        bash $BASH_VERSION, jq, curl, awk, readlink"
 }

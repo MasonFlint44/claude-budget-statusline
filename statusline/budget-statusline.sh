@@ -35,7 +35,7 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.2.1   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.2.2   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 SCRIPT_DIR=$(readlink -f "${BASH_SOURCE[0]:-$0}"); SCRIPT_DIR="${SCRIPT_DIR%/*}"
 # The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
 BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
@@ -694,13 +694,35 @@ if [ "${1:-}" = "--doctor" ]; then
     fail() { doc "$1" "$2"; doc "bars:" "hidden"; exit 1; }
     doc "version:" "budget-statusline $VERSION"
     # Tools first: without jq every later step would misreport its cause.
-    missing=""; for t in jq curl awk; do command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; done
-    [ -z "$missing" ] || fail "tools:" "missing:${missing} (install them; on Windows Git Bash brings curl and awk, jq is winget install jqlang.jq)"
+    # The hint names the command for this platform's package manager.
+    install_hint() {   # PKGS... -> HINT
+        case "$OSTYPE" in
+            darwin*) HINT="brew install $*" ;;
+            msys*|cygwin*) HINT="winget install $(for p in "$@"; do case $p in jq) printf 'jqlang.jq ' ;; *) printf '%s ' "$p" ;; esac; done)(in Git Bash, or PowerShell)" ;;
+            *) if command -v apt-get >/dev/null 2>&1; then HINT="sudo apt install $*"
+               elif command -v dnf >/dev/null 2>&1; then HINT="sudo dnf install $*"
+               elif command -v pacman >/dev/null 2>&1; then HINT="sudo pacman -S $*"
+               elif command -v zypper >/dev/null 2>&1; then HINT="sudo zypper install $*"
+               elif command -v apk >/dev/null 2>&1; then HINT="sudo apk add $*"
+               elif command -v brew >/dev/null 2>&1; then HINT="brew install $*"
+               else HINT="install $* with your package manager"; fi ;;
+        esac
+    }
+    missing=""; for t in jq curl awk readlink; do command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; done
+    if [ -n "$missing" ]; then
+        # shellcheck disable=SC2086  # the list is meant to split
+        install_hint $missing
+        fail "tools:" "missing:${missing}. Install: $HINT"
+    fi
     if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
-        fail "tools:" "bash $BASH_VERSION is too old: 4.4+ needed (macOS: brew install bash and name it in the statusLine command)"
+        install_hint bash
+        case "$OSTYPE" in
+            darwin*) fail "tools:" "bash $BASH_VERSION is too old: 4.4+ needed. Install: $HINT, then name that bash in the statusLine command (/opt/homebrew/bin/bash or /usr/local/bin/bash)" ;;
+            *) fail "tools:" "bash $BASH_VERSION is too old: 4.4+ needed. Install: $HINT" ;;
+        esac
     fi
     gitnote=""; command -v git >/dev/null 2>&1 || gitnote=", no git (the branch and diff line stays blank)"
-    doc "tools:" "bash $BASH_VERSION, jq, curl, awk$gitnote"
+    doc "tools:" "bash $BASH_VERSION, jq, curl, awk, readlink$gitnote"
     doc "config dir:" "$CLAUDE_DIR"
     bstamp '%Y %B' stamp; read -r cy cmonth <<< "$stamp"
     doc "budget clock:" "${BUDGET_TZ:-local time}, today $today"
