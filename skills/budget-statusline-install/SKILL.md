@@ -1,6 +1,6 @@
 ---
 name: budget-statusline-install
-description: Install or update the budget statusline — copies the statusline files to a stable location under ~/.claude and wires statusLine in settings.json. Re-run after a plugin update to refresh the copy.
+description: Install or update the budget statusline — copies the statusline files to a stable location under ~/.claude and wires statusLine in settings.json. Use when the user asks to install, set up, enable or update the budget statusline, says the statusline is not showing at all, or has just updated the plugin and wants the installed copy refreshed.
 ---
 
 # Install the budget statusline
