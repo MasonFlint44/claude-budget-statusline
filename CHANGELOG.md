@@ -4,8 +4,11 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
-## Unreleased
+## 2.2.4 — 2026-09-05
 
+- The bash version guard now points at `brew install bash` and
+  `/budget-statusline-install`, which wires the new bash; no hand edit of
+  the `statusLine` command is asked of the user.
 - Compatibility tests through Docker's `bash` images (`DOCKER=1`, on in CI):
   the version guard verified on real 3.2 and 4.3, a full render on 4.4
   with busybox awk. The 3.2 guard in 2.2.3 was reasoned, not run.
