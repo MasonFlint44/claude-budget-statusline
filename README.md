@@ -257,4 +257,4 @@ leaves the credentials alone. Transcripts go to `tests/skills/results/`.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT — see `LICENSE`. Version history in `CHANGELOG.md`.

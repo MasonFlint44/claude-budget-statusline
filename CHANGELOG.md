@@ -1,0 +1,56 @@
+# Changelog
+
+Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
+Code offers a plugin update when that field changes. Each version is a git
+tag (`v2.2.0`) and a GitHub release with this section as its notes.
+
+## 2.2.0 — 2026-09-05
+
+- `--doctor`: runs the refresh in the foreground one step at a time and names
+  the first one that hides the bars (no credentials, no token, expired token,
+  curl failure, HTTP status, spend billing off, no figure, no limit). Exit 1
+  when the bars would stay hidden.
+- `/budget-doctor` skill: finds the installed script and runs the doctor for
+  "my budget bars are blank". The installer now runs the doctor as its last
+  step, so the bars are filled on the first render.
+- `--help`.
+- Staleness tag: a dim `·12m` / `·3h` after the bars once no fetch has
+  succeeded for five minutes; counted in the row width so bars shrink to fit.
+- macOS: with no credentials file the token is read from the Keychain item
+  Claude Code creates. Unverified on a Mac; Linux never touches it.
+- README preview generated from the script (`docs/preview.py`).
+- `plugin.json` carries author, license, repository and homepage and passes
+  `claude plugin validate --strict`; the installer skill is marked
+  `disable-model-invocation`.
+- shellcheck clean and run in CI. Tests for damaged cache files, 30- and
+  20-column terminals, every doctor branch (195 tests).
+
+## 2.1.0 — 2026-09-05
+
+- Amounts honour the `exponent` field of the usage response instead of
+  assuming cents.
+- Spend billing switched off in the response (`spend.enabled: false`) hides
+  the bars instead of showing zeros.
+- Recorded usage response as a fixture; `LIVE=1 bats tests/live.bats` probes
+  the real endpoint for drift.
+- All date arithmetic in bash: no GNU `date`, no `date` calls at all. Render
+  path 34 processes down to 6, refresh 81 down to 15.
+- The off-words `off|none|no|0|false` work for both `CLAUDE_BUDGET_CALENDAR`
+  and `CLAUDE_BUDGET_REPO_LINE`, in any case.
+- Headless skill checks (`tests/skills/run.sh`) through `claude -p`.
+- Round half up everywhere; locale tests build their own locale.
+
+## 2.0.0 — 2026-09-05
+
+- `calendar.conf` replaces `holidays.conf`: a configurable work week
+  (`workdays sun-thu`), observe modes for holidays on non-workdays
+  (`nearest`, `next`, `prev`, `none`, per weekday), `once` ranges for PTO.
+- `--calendar [YYYY]` listing with observed dates and workday counts.
+- `/budget-calendar` skill.
+- Bats test suite with golden calendar listings; CI on every push.
+
+## 1.0.0 — 2026-09-03
+
+- Initial public release: day and month budget bars from the usage endpoint,
+  US federal holidays, `CLAUDE_BUDGET_TZ`, `CLAUDE_BUDGET_REFRESH`,
+  `CLAUDE_BUDGET_MONTHLY_LIMIT`, optional second line, `/install-statusline`.
