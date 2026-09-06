@@ -64,14 +64,17 @@ for case in "${CASES[@]}"; do
     CDIR="$HERE/cases/$case"; [ -r "$CDIR/prompt" ] || { echo "no such case: $case"; continue; }
     for ((run = 1; run <= RUNS; run++)); do
         total=$((total + 1))
-        WORK=$(mktemp -d); CFG="$WORK/claude"; mkdir -p "$CFG" "$WORK/cwd"
+        WORK=$(mktemp -d); CFG="$WORK/claude"; mkdir -p "$CFG" "$WORK/cwd" "$WORK/home"
         printf '{"hasCompletedOnboarding":true}\n' > "$CFG/.claude.json"
         [ -n "${ANTHROPIC_API_KEY:-}" ] || cp "$REAL_CFG/.credentials.json" "$CFG/.credentials.json"
         fail=0
         # shellcheck disable=SC1090,SC1091
         . "$CDIR/setup.sh"
         RESULT="$RES/$case-$run.json"
-        ( cd "$WORK/cwd" && CLAUDE_CONFIG_DIR="$CFG" claude -p "$(cat "$CDIR/prompt")" --plugin-dir "$REPO" --model "$MODEL" \
+        # HOME is throwaway too, so a run that reasons in terms of ~/.claude
+        # lands in the sandbox rather than in the real config (permissions are
+        # bypassed for the run; see below).
+        ( cd "$WORK/cwd" && HOME="$WORK/home" CLAUDE_CONFIG_DIR="$CFG" claude -p "$(cat "$CDIR/prompt")" --plugin-dir "$REPO" --model "$MODEL" \
               --output-format json --permission-mode bypassPermissions --allowedTools "$TOOLS" --max-turns 40 --max-budget-usd 2 \
               --setting-sources user < /dev/null ) > "$RESULT" 2> "$RES/$case-$run.stderr"
         rc=$?

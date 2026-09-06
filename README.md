@@ -256,7 +256,8 @@ tests/skills/run.sh -m fable -n 3   # another model, three runs per case
 It copies your credentials file into the throwaway dir for the CLI and
 copies it back if the token was refreshed; with `ANTHROPIC_API_KEY` set it
 leaves the credentials alone. Transcripts go to `tests/skills/results/`. The run
-bypasses permission prompts, which a headless session cannot answer (the
+runs with a throwaway HOME and config dir and bypasses permission prompts,
+which a headless session cannot answer (the
 write to `settings.json` always asks); that applies to the test runner only,
 never to the installed statusline or the skills in normal use.
 
