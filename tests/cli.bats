@@ -21,5 +21,5 @@ load helpers
     # a syntax error before reaching it. Pin the guard's position and its text.
     local n; n=$(grep -n 'BASH_VERSINFO\[0\]}" -lt 4' "$SL" | head -1 | cut -d: -f1); [ "$n" -lt 60 ]
     ! head -n "$n" "$SL" | grep -Eq 'mapfile|\$\{[a-zA-Z_]+,,\}|%\(.*\)T|local -A|read -d|\[\[ '
-    grep -q 'brew install bash, then name that bash in the statusLine command' "$SL"
+    grep -q 'brew install bash, then /budget-statusline-install' "$SL"
 }

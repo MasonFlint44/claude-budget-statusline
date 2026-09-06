@@ -156,9 +156,11 @@ flags and knobs.
 Linux and devcontainers work as-is and are what the test suite runs on.
 Other platforms, untested so far (reports welcome):
 
-- **macOS:** needs a bash 4.4+ from Homebrew (the system bash is 3.2)
-  named in the `statusLine` command, and `readlink -f`, which macOS has had
-  since 12.3. Claude Code keeps the token in the Keychain there rather than
+- **macOS:** needs a bash 4.4+ from Homebrew (`brew install bash`; the
+  system bash is 3.2). The install skill finds it and names it in the
+  `statusLine` command; by hand, write `/opt/homebrew/bin/bash` (Intel:
+  `/usr/local/bin/bash`) there instead of `bash`. Also `readlink -f`, which
+  macOS has had since 12.3. Claude Code keeps the token in the Keychain there rather than
   in the credentials file; when the file is absent the script asks the
   Keychain for the `Claude Code-credentials` item (the first read may
   prompt once for access; allow it always). `--doctor` shows which source

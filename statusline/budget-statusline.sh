@@ -42,7 +42,7 @@ VERSION=2.2.3   # kept equal to .claude-plugin/plugin.json's version (the tests 
 # code path, the statusline render included, exits here.
 if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
     case "$(uname -s 2>/dev/null)" in
-        Darwin) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Install: brew install bash, then name that bash in the statusLine command: \"/opt/homebrew/bin/bash $0\" (Intel Macs: /usr/local/bin/bash). Re-running /budget-statusline-install does this for you." >&2 ;;
+        Darwin) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Run: brew install bash, then /budget-statusline-install in Claude Code, which wires the new bash into the statusLine command for you." >&2 ;;
         *) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed." >&2 ;;
     esac
     exit 1
