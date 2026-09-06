@@ -4,6 +4,19 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.6.0 — 2026-09-06
+
+- **Skills renamed** to `/budget-statusline:install`, `:calendar`, `:display`
+  and `:doctor` (were `/budget-statusline-install` and so on). Claude Code
+  namespaces plugin skills with the plugin name, so the prefix was said
+  twice; the docs and the bash-too-old message now use the namespaced form.
+- Marketplace is `claude-toolbox` (was `claude-statuslines`) in the README.
+- The install skill's description carries its trigger phrases.
+- Skill trigger evals: `tests/skills/triggers.sh` scores each skill's
+  description over twenty queries in `tests/skills/triggers/` through the
+  skill-creator plugin's evaluator, and can run its optimizer. Paid, by hand.
+- `CLAUDE.md` for contributors.
+
 ## 2.5.0 — 2026-09-06
 
 - **Worktrees on the repository row.** In a linked worktree the path

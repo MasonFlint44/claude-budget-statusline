@@ -21,7 +21,7 @@ load helpers
     # a syntax error before reaching it. Pin the guard's position and its text.
     local n; n=$(grep -n 'BASH_VERSINFO\[0\]}" -lt 4' "$SL" | head -1 | cut -d: -f1); [ "$n" -lt 60 ]
     ! head -n "$n" "$SL" | grep -Eq 'mapfile|\$\{[a-zA-Z_]+,,\}|%\(.*\)T|local -A|read -d|\[\[ '
-    grep -q 'brew install bash, then /budget-statusline:budget-statusline-install' "$SL"
+    grep -q 'brew install bash, then /budget-statusline:install' "$SL"
 }
 @test "--display takes at most one argument" {
     run at "$NOW" bash "$SL" --display a b; assert_status 2; assert_has "usage:"

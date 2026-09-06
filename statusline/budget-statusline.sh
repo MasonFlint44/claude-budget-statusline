@@ -42,14 +42,14 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.5.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.6.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 # Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
 # thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
 # 3.2) gets one clear line instead of a syntax error further down. Every
 # code path, the statusline render included, exits here.
 if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
     case "$(uname -s 2>/dev/null)" in
-        Darwin) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Run: brew install bash, then /budget-statusline:budget-statusline-install in Claude Code, which wires the new bash into the statusLine command for you." >&2 ;;
+        Darwin) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Run: brew install bash, then /budget-statusline:install in Claude Code, which wires the new bash into the statusLine command for you." >&2 ;;
         *) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed." >&2 ;;
     esac
     exit 1

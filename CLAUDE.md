@@ -47,4 +47,4 @@ DOCKER=1 bats tests/compat.bats    # bash 3.2 / 4.3 / 4.4 images; CI runs this
    push the tag, and `gh release create vX.Y.Z` with the same notes.
 4. The marketplace (`~/git/claude-toolbox`) carries no version for this plugin, so
    a release never touches it. Locally: `claude plugin update
-   budget-statusline@claude-toolbox`, then `/budget-statusline:budget-statusline-install` again.
+   budget-statusline@claude-toolbox`, then `/budget-statusline:install` again.
