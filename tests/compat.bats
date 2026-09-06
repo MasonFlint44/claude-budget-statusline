@@ -5,6 +5,8 @@
 # DOCKER=1 (CI sets it); the images are a few MB each.
 load helpers
 setup() { [ "${DOCKER:-}" = 1 ] || skip "set DOCKER=1 to run the bash-version checks in Docker"; command -v docker >/dev/null || skip "no docker"; }
+# Pull once up front: a first pull's progress goes to stderr, which `run` would capture as output.
+setup_file() { [ "${DOCKER:-}" = 1 ] && command -v docker >/dev/null && for v in 3.2 4.3 4.4; do docker pull -q "bash:$v" >/dev/null 2>&1; done; true; }
 in_bash() { local v="$1"; shift; run docker run --rm -v "$TESTS_DIR/../statusline:/s:ro" "bash:$v" bash -c "$*"; }
 
 @test "bash 3.2: the guard is the first and only line, exit 1, on --doctor and on a render" {

@@ -9,7 +9,9 @@ aged() { printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( STAMP - $1 ))" > "
 tick() { render "$NOW" "$@"; wait_refresh; }
 
 @test "a fresh cache does not refresh" { aged 0; tick; assert_equal "$(curl_calls)" 0; assert_has "month:"; }
-@test "a cache 59 s old does not refresh" { aged 59; tick; assert_equal "$(curl_calls)" 0; }
+# 58, not 59: the script's clock can tick one second past the test's stamp
+# (libfaketime offsets are whole seconds), and 59 + 1 is the boundary.
+@test "a cache 58 s old does not refresh" { aged 58; tick; assert_equal "$(curl_calls)" 0; }
 @test "a cache 60 s old refreshes and is replaced" {
     aged 60; tick; assert_equal "$(curl_calls)" 1
     run cache_contents; assert_has "2026-09-05 " " 0 120 400 "; assert_lacks "3.25"
