@@ -148,7 +148,8 @@ flags and knobs.
   shows no dollar amount, or an organization with spend billing switched
   off, there is no figure. In every such case the bars stay hidden and the
   rest of the line still renders.
-- `bash` 4.4+, `jq`, `curl`, `awk`, `readlink -f`, `sort`, `xargs`, `find`
+- `bash` 4.4+ (an older one prints one line saying so and exits), `jq`,
+  `curl`, `awk` (busybox's is fine), `readlink -f`, `sort`, `xargs`, `find`
   and `grep`. All the date arithmetic is done in bash, so no GNU `date`.
 - `git` — only for the branch and diff segment; blank without it.
 - `tput` — optional, for the terminal width when `COLUMNS` is unset.
@@ -214,6 +215,7 @@ bats tests/                       # the whole suite (~30 s), no network
 bats tests/calendar.bats          # one area
 UPDATE=1 bats tests/calendar.bats # rewrite the golden listings
 LIVE=1 bats tests/live.bats       # probe the real endpoint with your credentials
+DOCKER=1 bats tests/compat.bats   # other bash versions, in Docker
 ```
 
 [Bats](https://github.com/bats-core/bats-core) (`apt install bats`) plus
@@ -234,6 +236,7 @@ and nothing is installed system-wide. One file per area:
 | `locale.bats` | comma-decimal locales, with the locale built on the fly |
 | `cli.bats` | flag handling |
 | `doctor.bats` | `--doctor` and `--help`: every step's failure line and exit status, the Keychain fallback through a fake `security` (and that Linux never calls it) |
+| `compat.bats` | bash 3.2, 4.3 and 4.4 through Docker's `bash` images: the version guard's one line on the old ones, a full render on 4.4 (Alpine, busybox awk). Only with `DOCKER=1`; CI sets it |
 | `live.bats` | the drift probe: the real endpoint with your own credentials, only with `LIVE=1`, never in CI. Fails when the response no longer has the shape recorded in `tests/fixtures/usage-response.json` |
 
 CI runs the suite and `shellcheck` on every push. `docs/preview.py`

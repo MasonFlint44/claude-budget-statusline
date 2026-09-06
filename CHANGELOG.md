@@ -4,6 +4,12 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## Unreleased
+
+- Compatibility tests through Docker's `bash` images (`DOCKER=1`, on in CI):
+  the version guard verified on real 3.2 and 4.3, a full render on 4.4
+  with busybox awk. The 3.2 guard in 2.2.3 was reasoned, not run.
+
 ## 2.2.3 — 2026-09-05
 
 - The bash 4.4+ check is now the first command in the script, in bash-3
