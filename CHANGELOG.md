@@ -4,7 +4,7 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
-## Unreleased
+## 2.2.5 — 2026-09-06
 
 - `--doctor` reports `cache: could not write` when the cache directory is not
   writable, instead of reading back an older line as "refreshed just now".
