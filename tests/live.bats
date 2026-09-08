@@ -33,5 +33,5 @@ fetch_live() {
     read -r _ _ day month limit rest < "$(cache_path)"
     is_number() { case "$1" in ''|*[!0-9.]*) return 1 ;; esac; }
     is_number "$day" && is_number "$month" && is_number "$limit" || { echo "cache: $(cache_contents)"; false; }
-    [ ! -e "$CFG/cache/statusline/budget-usage.hold" ] || { echo "hold written: the fetch failed"; false; }
+    [ ! -e "$CFG/cache/statusline/spend-usage.hold" ] || { echo "hold written: the fetch failed"; false; }
 }

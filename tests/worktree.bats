@@ -21,11 +21,11 @@ loc() {   # loc [VAR=value ...] -> the row for $DIR (default: the worktree), ANS
     local dir="${DIR:-$WT}" input
     input=$(printf '{"workspace":{"current_dir":"%s"},"cost":{"total_lines_added":%s,"total_lines_removed":%s}}' "$dir" "${ADDED:-0}" "${REMOVED:-0}")
     run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "$input" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY="${DISPLAY_OVERRIDE:-off}" "$@" bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_SPEND_DISPLAY="${DISPLAY_OVERRIDE:-off}" "$@" bash "$SL"
 }
 loc_raw() {   # the same with the escapes kept
     local input; input=$(printf '{"workspace":{"current_dir":"%s"}}' "${DIR:-$WT}")
-    run bash -c 'printf "%s" "$0" | "$@" | tail -1' "$input" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY=off bash "$SL"
+    run bash -c 'printf "%s" "$0" | "$@" | tail -1' "$input" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_SPEND_DISPLAY=off bash "$SL"
 }
 
 @test "a worktree under .claude/worktrees: main path › name, then the worktree's branch" {
@@ -80,7 +80,7 @@ loc_raw() {   # the same with the escapes kept
     local real; real=$(command -v git); mkdir -p "$BATS_TEST_TMPDIR/bin"
     printf '#!/bin/sh\ncase "$*" in *--path-format*) echo "error: unknown option" >&2; exit 129 ;; esac\nexec %s "$@"\n' "$real" > "$BATS_TEST_TMPDIR/bin/git"; chmod +x "$BATS_TEST_TMPDIR/bin/git"
     run --separate-stderr bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "{\"workspace\":{\"current_dir\":\"$WT\"}}" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY=off PATH="$BATS_TEST_TMPDIR/bin:$PATH" bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_SPEND_DISPLAY=off PATH="$BATS_TEST_TMPDIR/bin:$PATH" bash "$SL"
     # exactly the 2.4 rendering: the worktree's own path, tagged with the repo name
     assert_equal "$output" "~/project/.claude/worktrees/wt-demo (project) ⎇  feature/wt"; assert_equal "$stderr" ""
 }

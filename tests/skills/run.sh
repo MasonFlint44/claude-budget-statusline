@@ -47,16 +47,16 @@ expect_file() {  # expect_file FILE REGEX [MESSAGE]: a line matching REGEX exist
 expect_no_file_match() { grep -Eq -- "$2" "$1" 2>/dev/null && { echo "    ${3:-unexpected /$2/ in ${1#"$CFG"/}}"; fail=$((fail + 1)); }; return 0; }
 expect_out() { case "$OUT" in *"$1"*) ;; *) echo "    output lacks: $1"; fail=$((fail + 1)) ;; esac; }
 expect_no_warnings() {  # the installed calendar parses clean
-    local err; err=$(bash "$CFG/statusline/budget-statusline.sh" --calendar 2>&1 >/dev/null)
+    local err; err=$(bash "$CFG/statusline/spend-statusline.sh" --calendar 2>&1 >/dev/null)
     [ -z "$err" ] || { echo "    calendar warnings:"; printf '%s\n' "$err" | sed 's/^/      /'; fail=$((fail + 1)); }
 }
 # scaffold_installed: the plugin already installed under $CFG, settings wired,
 # optionally with inline knobs before the script path ($1).
 scaffold_installed() {
     mkdir -p "$CFG/statusline/config"
-    cp "$REPO/statusline/budget-statusline.sh" "$CFG/statusline/"
+    cp "$REPO/statusline/spend-statusline.sh" "$CFG/statusline/"
     cp "$REPO/statusline/config/calendar.conf" "$REPO/statusline/config/display.conf" "$CFG/statusline/config/"
-    printf '{"statusLine":{"type":"command","command":"%sbash %s/statusline/budget-statusline.sh"}}\n' "${1:-}" "$CFG" > "$CFG/settings.json"
+    printf '{"statusLine":{"type":"command","command":"%sbash %s/statusline/spend-statusline.sh"}}\n' "${1:-}" "$CFG" > "$CFG/settings.json"
 }
 
 total=0; passed=0; cost_all=0

@@ -1,46 +1,46 @@
 [
   {
-    "query": "install the budget statusline, I just added the plugin from claude-toolbox",
+    "query": "install the spend statusline, I just added the plugin from claude-toolbox",
     "should_trigger": true
   },
   {
-    "query": "set up the spend budget bars in my status line",
+    "query": "set up the spend bars in my status line",
     "should_trigger": true
   },
   {
-    "query": "I updated the budget-statusline plugin to 2.5, refresh my installed copy",
+    "query": "I updated the spend-statusline plugin to 2.5, refresh my installed copy",
     "should_trigger": true
   },
   {
-    "query": "the budget statusline isn't showing at all, just the default status line. can you get it installed properly",
+    "query": "the spend statusline isn't showing at all, just the default status line. can you get it installed properly",
     "should_trigger": true
   },
   {
-    "query": "enable the budget statusline on my mac, I have homebrew bash",
+    "query": "enable the spend statusline on my mac, I have homebrew bash",
     "should_trigger": true
   },
   {
-    "query": "wire the budget statusline into my settings.json statusLine",
+    "query": "wire the spend statusline into my settings.json statusLine",
     "should_trigger": true
   },
   {
-    "query": "reinstall the budget statusline, I think my copy under ~/.claude/statusline is stale",
+    "query": "reinstall the spend statusline, I think my copy under ~/.claude/statusline is stale",
     "should_trigger": true
   },
   {
-    "query": "new work laptop, get the budget statusline going. plugin is already installed",
+    "query": "new work laptop, get the spend statusline going. plugin is already installed",
     "should_trigger": true
   },
   {
-    "query": "switch my budget statusline over to the homebrew bash instead of the system one",
+    "query": "switch my spend statusline over to the homebrew bash instead of the system one",
     "should_trigger": true
   },
   {
-    "query": "put the daily/monthly budget bars in my claude code status bar",
+    "query": "put the daily/monthly spend bars in my claude code status bar",
     "should_trigger": true
   },
   {
-    "query": "my budget bars are blank this morning, what's wrong",
+    "query": "my spend bars are blank this morning, what's wrong",
     "should_trigger": false
   },
   {
@@ -48,7 +48,7 @@
     "should_trigger": false
   },
   {
-    "query": "I'm off next Thursday and Friday, add it to my budget calendar",
+    "query": "I'm off next Thursday and Friday, add it to my spend calendar",
     "should_trigger": false
   },
   {

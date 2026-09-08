@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # The display file (config/display.conf): which elements render. Each name
 # hidden alone, dependents following their parent, the row re-flowing around
-# a hidden piece, the fetch skipped when both budget bars are hidden, the
+# a hidden piece, the fetch skipped when both spend bars are hidden, the
 # file's parsing, and the --display listing as goldens.
 load helpers
 setup() { fresh_config; }
@@ -13,7 +13,7 @@ FULL='{"model":{"display_name":"Opus"},"effort":{"level":"high"},"context_window
 full() {   # full [LINE...]: render FULL with a display file of those lines
     [ $# -gt 0 ] && display_file "$@"
     printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 630 ))" > "$(cache_path)"
-    INPUT="$(printf "$FULL" "$(( $(epoch_at "$NOW") + 2500 ))")" render "$NOW" CLAUDE_BUDGET_REFRESH=900
+    INPUT="$(printf "$FULL" "$(( $(epoch_at "$NOW") + 2500 ))")" render "$NOW" CLAUDE_SPEND_REFRESH=900
 }
 ALL=("Opus · high" "ctx:" '$3.72' "· cache 42m" "off:" '$3.25/' "month:" '/$400' "│" "·10m")
 bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}"; }
@@ -42,7 +42,7 @@ bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}
 @test "hide month: the day bar alone; the tick and the overage go with it" {
     full "hide month"; assert_lacks "month:" '$400' "│"; assert_has "off:" '$3.25/' "·10m"
     printf '2026-09-05 %s 3.25 420 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 630 ))" > "$(cache_path)"
-    INPUT="$(printf "$FULL" 0)" render "$NOW" CLAUDE_BUDGET_REFRESH=900; assert_lacks '+$20' "month:"
+    INPUT="$(printf "$FULL" 0)" render "$NOW" CLAUDE_SPEND_REFRESH=900; assert_lacks '+$20' "month:"
 }
 @test "hide pace: the month bar without its tick" {
     full "hide pace"; assert_lacks "│"; assert_has "month:" '/$400' "off:"
@@ -69,18 +69,18 @@ bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}
     full "# all on"; [ "${#lines[@]}" = 3 ]; [[ "${lines[1]}" == off:* ]]; assert_equal "${lines[2]}" /tmp
     full "hide cost cache"; [ "${#lines[@]}" = 2 ]; [[ "${lines[0]}" == "Opus · high | ctx:"*"| off:"* ]]; assert_equal "${lines[1]}" /tmp
 }
-@test "hiding ctx leaves the budget bars as the only bars, sharing the row's width" {
+@test "hiding ctx leaves the spend bars as the only bars, sharing the row's width" {
     full "hide ctx"; [ "${#lines[@]}" = 2 ]; [[ "${lines[0]}" == "Opus · high | off:"* ]]
     assert_equal "$(bar_width "${lines[0]}" off:)" 28; assert_equal "$(bar_width "${lines[0]}" month:)" 28
 }
 
-# --- both budget bars hidden: no fetch at all ---
+# --- both spend bars hidden: no fetch at all ---
 @test "hide day and month: no credentials read, no request, no cache, no lock, no baseline" {
     fetch_setup; display_file "hide day month"
     render "$NOW"; sleep 0.3
     assert_lacks "day:" "off:" "month:"; assert_has "ctx:"
     assert_equal "$(curl_calls)" 0
-    [ ! -e "$(cache_path)" ]; [ ! -d "$CFG/cache/statusline/budget-usage.lock" ]; [ ! -e "$DAYSTART" ]; [ ! -e "$HOLD" ]
+    [ ! -e "$(cache_path)" ]; [ ! -d "$CFG/cache/statusline/spend-usage.lock" ]; [ ! -e "$DAYSTART" ]; [ ! -e "$HOLD" ]
 }
 @test "hide day and month with a usable cache: still no refresh, bars hidden" {
     fetch_setup; display_file "hide day month"
@@ -94,7 +94,7 @@ bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}
 }
 @test "--doctor with day and month hidden: says so, exits 0, fetches nothing" {
     fetch_setup; display_file "hide day month"
-    run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" CLAUDE_BUDGET_DISPLAY="$CFG/display.conf" bash "$SL" --doctor
+    run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" CLAUDE_SPEND_DISPLAY="$CFG/display.conf" bash "$SL" --doctor
     assert_status 0; assert_has "display:      $CFG/display.conf: hidden day, month, pace, age" "bars:         hidden by $CFG/display.conf (day and month both hidden), so nothing is fetched"
     assert_lacks "credentials:"; assert_equal "$(curl_calls)" 0
 }
@@ -103,20 +103,20 @@ bar_width() { [[ "$1" =~ $2([█░│]+) ]] && printf '%s' "${#BASH_REMATCH[1]}
 doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; }
 @test "--doctor names the display file and what it hides, with unparsed lines counted" {
     fetch_setup; display_file "hide pace cache" "hide foo"
-    doctor CLAUDE_BUDGET_DISPLAY="$CFG/display.conf"; assert_status 0
+    doctor CLAUDE_SPEND_DISPLAY="$CFG/display.conf"; assert_status 0
     assert_has "display:      $CFG/display.conf: hidden cache, pace, 1 line(s) not parsed (see --display)" "bars:         will show"
 }
 @test "--doctor with nothing hidden, no file, or the knob off" {
     fetch_setup; display_file "# empty"
-    doctor CLAUDE_BUDGET_DISPLAY="$CFG/display.conf"; assert_has "display:      $CFG/display.conf: all elements shown"
-    doctor CLAUDE_BUDGET_DISPLAY=/nope; assert_has "display:      no file at /nope: all elements shown"
-    doctor CLAUDE_BUDGET_DISPLAY=off; assert_has "display:      off (CLAUDE_BUDGET_DISPLAY=off): all elements shown"
+    doctor CLAUDE_SPEND_DISPLAY="$CFG/display.conf"; assert_has "display:      $CFG/display.conf: all elements shown"
+    doctor CLAUDE_SPEND_DISPLAY=/nope; assert_has "display:      no file at /nope: all elements shown"
+    doctor CLAUDE_SPEND_DISPLAY=off; assert_has "display:      off (CLAUDE_SPEND_DISPLAY=off): all elements shown"
 }
 
 # --- the file and the knob ---
-@test "CLAUDE_BUDGET_DISPLAY: off, none, no, 0, false (any case) mean no file; a missing file hides nothing" {
+@test "CLAUDE_SPEND_DISPLAY: off, none, no, 0, false (any case) mean no file; a missing file hides nothing" {
     local v; for v in off none no 0 false OFF None /nope; do
-        INPUT="$(printf "$FULL" 0)" render "$NOW" CLAUDE_BUDGET_DISPLAY="$v"; assert_has "Opus" "/tmp"
+        INPUT="$(printf "$FULL" 0)" render "$NOW" CLAUDE_SPEND_DISPLAY="$v"; assert_has "Opus" "/tmp"
     done
 }
 @test "the shipped display.conf hides nothing" {
@@ -136,7 +136,7 @@ doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; 
 @test "bad lines: the good names on the line still apply, and the render stays silent" {
     display_file "hide pace foo" "show model" "hide"
     printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 630 ))" > "$(cache_path)"
-    run --separate-stderr _render "$(printf "$FULL" 0)" "$NOW" CLAUDE_BUDGET_REFRESH=900
+    run --separate-stderr _render "$(printf "$FULL" 0)" "$NOW" CLAUDE_SPEND_REFRESH=900
     assert_lacks "│"; assert_has "Opus" "month:"; assert_equal "$stderr" ""
 }
 
@@ -162,7 +162,7 @@ display_golden() {
 }
 @test "--display with no file, or the knob off" {
     run at "$NOW" bash "$SL" --display /nope; assert_status 0; assert_has "display: no file at /nope: everything shown"
-    run at "$NOW" env CLAUDE_BUDGET_DISPLAY=off bash "$SL" --display; assert_status 0; assert_has "display: off (CLAUDE_BUDGET_DISPLAY=off): everything shown"
+    run at "$NOW" env CLAUDE_SPEND_DISPLAY=off bash "$SL" --display; assert_status 0; assert_has "display: off (CLAUDE_SPEND_DISPLAY=off): everything shown"
     run at "$NOW" bash "$SL" --display none; assert_has "display: off (--display none): everything shown"
 }
 @test "--display reads nothing from stdin" {

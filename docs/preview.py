@@ -11,7 +11,7 @@ import html, os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-SCRIPT = os.path.join(REPO, "statusline", "budget-statusline.sh")
+SCRIPT = os.path.join(REPO, "statusline", "spend-statusline.sh")
 WHEN, TZ, COLS = "2026-09-04 14:30:00", "America/Chicago", 120
 # The prompt cache is warm with 42 minutes left (its expiry is relative to WHEN).
 INPUT = ('{"model":{"display_name":"Opus"},"effort":{"level":"high"},'
@@ -32,7 +32,7 @@ def main():
     cfg = os.path.join(tmp, "claude"); os.makedirs(os.path.join(cfg, "cache", "statusline"))
     # A repo for the second line: on a feature branch, one commit ahead of main,
     # with uncommitted work.
-    work = os.path.join(tmp, "claude-budget-statusline"); os.makedirs(work)
+    work = os.path.join(tmp, "claude-spend-statusline"); os.makedirs(work)
     env_git = {**os.environ, "GIT_AUTHOR_NAME": "p", "GIT_AUTHOR_EMAIL": "p@x", "GIT_COMMITTER_NAME": "p", "GIT_COMMITTER_EMAIL": "p@x"}
     g = lambda *a: sh("git", "-C", work, *a, env=env_git)
     g("init", "-q", "-b", "main")
@@ -44,9 +44,9 @@ def main():
     open(os.path.join(work, "README.md"), "w").write("hello\n" * 24 + "world\n" * 8)
     open(os.path.join(work, "scratch.txt"), "w").write("y\n" * 4)
     stamp = sh("faketime", WHEN, "date", "+%s", env={**os.environ, "TZ": TZ}).strip()
-    open(os.path.join(cfg, "cache", "statusline", "budget-usage"), "w").write(CACHE.format(stamp=stamp))
+    open(os.path.join(cfg, "cache", "statusline", "spend-usage"), "w").write(CACHE.format(stamp=stamp))
     env = {**os.environ, "TZ": TZ, "HOME": tmp, "CLAUDE_CONFIG_DIR": cfg, "COLUMNS": str(COLS),
-           "CLAUDE_BUDGET_REFRESH": "3600", "CLAUDE_BUDGET_CALENDAR": os.path.join(REPO, "statusline", "config", "calendar.conf")}
+           "CLAUDE_SPEND_REFRESH": "3600", "CLAUDE_SPEND_CALENDAR": os.path.join(REPO, "statusline", "config", "calendar.conf")}
     out = subprocess.run(["faketime", WHEN, "bash", SCRIPT], input=INPUT % (int(stamp) + 2500, work), capture_output=True, text=True, env=env, check=True).stdout
     shutil.rmtree(tmp)
     open(os.path.join(HERE, "preview.txt"), "w").write(re.sub(r"\x1b\[[0-9;]*m", "", out) + "\n")

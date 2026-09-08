@@ -5,7 +5,7 @@
 
 bats_require_minimum_version 1.5.0
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SL="$TESTS_DIR/../statusline/budget-statusline.sh"
+SL="$TESTS_DIR/../statusline/spend-statusline.sh"
 SHIPPED="$TESTS_DIR/../statusline/config/calendar.conf"
 CAL="$TESTS_DIR/calendars"
 EXP="$TESTS_DIR/expected"
@@ -55,7 +55,7 @@ golden() {
     local name="$1" conf="$2" year="${3:-}" path actual
     shift 2; [ $# -gt 0 ] && shift
     case "$conf" in shipped) path="$SHIPPED" ;; off|/*) path="$conf" ;; *) path="$CAL/$conf" ;; esac
-    run --separate-stderr at "${AT:-$NOW}" env CLAUDE_BUDGET_CALENDAR="$path" "$@" bash "$SL" --calendar $year
+    run --separate-stderr at "${AT:-$NOW}" env CLAUDE_SPEND_CALENDAR="$path" "$@" bash "$SL" --calendar $year
     actual=$(printf '%s\n--- stderr\n%s\n' "$output" "$stderr" \
         | sed "s#$TESTS_DIR/calendars/#calendars/#; s#$SHIPPED#statusline/config/calendar.conf#")
     if [ -n "${UPDATE:-}" ]; then printf '%s\n' "$actual" > "$EXP/$name.txt"; return 0; fi
@@ -71,7 +71,7 @@ fresh_config() {
     rm -rf "$CFG"; mkdir -p "$CFG/cache/statusline"
     export CLAUDE_CONFIG_DIR="$CFG"
     # The render helpers hide the repo row through this display file, so the
-    # budget-line tests see one row; display_file replaces it for a test.
+    # spend-line tests see one row; display_file replaces it for a test.
     printf 'hide repo\n' > "$CFG/display-norepo.conf"
     DISPLAY_OVERRIDE=""
 }
@@ -83,13 +83,13 @@ display_file() {
     printf '%s\n' "$@" > "$CFG/display.conf"
     DISPLAY_OVERRIDE="$CFG/display.conf"
 }
-cache_path() { printf '%s/cache/statusline/budget-usage' "$CFG"; }
+cache_path() { printf '%s/cache/statusline/spend-usage' "$CFG"; }
 # cache_line "TIME" "<today$> <month$> <limit$> <mask> <holiday doms...>" [VAR=value ...]
-#   Writes a cache line dated on the budget clock at TIME with a fresh stamp,
+#   Writes a cache line dated on the spend clock at TIME with a fresh stamp,
 #   so the render uses it and does not trigger a refresh.
 cache_line() {
     local t="$1" rest="$2" today stamp; shift 2
-    today=$(at "$t" env "$@" bash -c 'd=${CLAUDE_BUDGET_TZ:-}; if [ -n "$d" ]; then TZ=$d date +%F; else date +%F; fi')
+    today=$(at "$t" env "$@" bash -c 'd=${CLAUDE_SPEND_TZ:-}; if [ -n "$d" ]; then TZ=$d date +%F; else date +%F; fi')
     stamp=$(epoch_at "$t")
     printf '%s %s %s\n' "$today" "$stamp" "$rest" > "$(cache_path)"
 }
@@ -99,19 +99,19 @@ INPUT_DEFAULT='{"model":{"display_name":"Opus"},"context_window":{"used_percenta
 #   fresh config's repo-hiding one unless display_file wrote another.
 _render_raw() {
     local input="$1" t="$2"; shift 2
-    printf '%s' "$input" | at "$t" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS="${COLUMNS_OVERRIDE:-120}" CLAUDE_BUDGET_DISPLAY="${DISPLAY_OVERRIDE:-$CFG/display-norepo.conf}" "$@" bash "$SL"
+    printf '%s' "$input" | at "$t" env CLAUDE_CONFIG_DIR="$CFG" COLUMNS="${COLUMNS_OVERRIDE:-120}" CLAUDE_SPEND_DISPLAY="${DISPLAY_OVERRIDE:-$CFG/display-norepo.conf}" "$@" bash "$SL"
 }
 _render() { _render_raw "$@" | strip_ansi; }
 render() { local t="$1"; shift; run _render "${INPUT:-$INPUT_DEFAULT}" "$t" "$@"; }
 # render_raw: the same, escapes kept, for the colour checks.
 render_raw() { local t="$1"; shift; run _render_raw "${INPUT:-$INPUT_DEFAULT}" "$t" "$@"; }
-# first_line -> the first row only, for assertions on the budget line.
+# first_line -> the first row only, for assertions on the spend line.
 first_line() { printf '%s' "${lines[0]:-}"; }
 
 # Wait for the detached refresh to finish: the lock dir goes away when it does.
 wait_refresh() {
     local i
-    for i in $(seq 1 100); do [ -d "$CFG/cache/statusline/budget-usage.lock" ] || return 0; sleep 0.05; done
+    for i in $(seq 1 100); do [ -d "$CFG/cache/statusline/spend-usage.lock" ] || return 0; sleep 0.05; done
     echo "refresh did not finish"; return 1
 }
 
@@ -122,8 +122,8 @@ fetch_setup() {
     export PATH="$TESTS_DIR/bin:$PATH"
     export FAKE_CURL_LOG="$BATS_TEST_TMPDIR/curl.log"
     CREDS="$CFG/.credentials.json"
-    DAYSTART="$CFG/cache/statusline/budget-usage.daystart"
-    HOLD="$CFG/cache/statusline/budget-usage.hold"
+    DAYSTART="$CFG/cache/statusline/spend-usage.daystart"
+    HOLD="$CFG/cache/statusline/spend-usage.hold"
     creds "$NOW" 3600      # a token valid for an hour past NOW
     export FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"currency":"USD","exponent":2},"limit":{"amount_minor":40000,"currency":"USD","exponent":2}}}'
     unset FAKE_CURL_CODE FAKE_CURL_EXIT FAKE_CURL_SLEEP

@@ -22,6 +22,6 @@ check() { assert_status 0; assert_has " 43% " '$1.50' " 20% " '$3.25/$17' " 30% 
 @test "LC_NUMERIC=de_DE.UTF-8 alone" { INPUT="$INPUT_PCT" render "$NOW" LC_ALL= LC_NUMERIC="$LOC"; check; }
 @test "LANG=de_DE.UTF-8 alone" { INPUT="$INPUT_PCT" render "$NOW" LC_ALL= LANG="$LOC"; check; }
 @test "the calendar listing under LC_ALL=de_DE.UTF-8 keeps English day names and ASCII dates" {
-    run at "$NOW" env LC_ALL="$LOC" CLAUDE_BUDGET_CALENDAR="$SHIPPED" bash "$SL" --calendar 2026
+    run at "$NOW" env LC_ALL="$LOC" CLAUDE_SPEND_CALENDAR="$SHIPPED" bash "$SL" --calendar 2026
     assert_status 0; assert_has "2026-07-03 Fri Independence Day" "September 2026: 21 workdays"
 }

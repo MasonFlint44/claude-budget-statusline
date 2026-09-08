@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # When a render kicks off a background refresh: cache age against the
-# interval, the hold file, the lock, and the CLAUDE_BUDGET_REFRESH knob.
+# interval, the hold file, the lock, and the CLAUDE_SPEND_REFRESH knob.
 load helpers
 setup() { fetch_setup; STAMP=$(epoch_at "$NOW"); }
 # aged N: a valid cache line whose stamp is N seconds before NOW (negative = future).
@@ -27,34 +27,34 @@ tick() { render "$NOW" "$@"; wait_refresh; }
 }
 @test "a garbled hold file is ignored" { printf 'soon\n' > "$HOLD"; aged 600; tick; assert_equal "$(curl_calls)" 1; }
 @test "a live lock (stamped within five minutes) blocks a second refresher" {
-    mkdir "$CFG/cache/statusline/budget-usage.lock"; printf '%s\n' "$(( STAMP - 299 ))" > "$CFG/cache/statusline/budget-usage.lock/stamp"
+    mkdir "$CFG/cache/statusline/spend-usage.lock"; printf '%s\n' "$(( STAMP - 299 ))" > "$CFG/cache/statusline/spend-usage.lock/stamp"
     aged 600; render "$NOW"; sleep 0.3; assert_equal "$(curl_calls)" 0
-    rmdir "$CFG/cache/statusline/budget-usage.lock" 2>/dev/null || rm -rf "$CFG/cache/statusline/budget-usage.lock"
+    rmdir "$CFG/cache/statusline/spend-usage.lock" 2>/dev/null || rm -rf "$CFG/cache/statusline/spend-usage.lock"
 }
 @test "a stale lock (older than five minutes) is cleared and the refresh runs" {
-    mkdir "$CFG/cache/statusline/budget-usage.lock"; printf '%s\n' "$(( STAMP - 301 ))" > "$CFG/cache/statusline/budget-usage.lock/stamp"
-    aged 600; tick; assert_equal "$(curl_calls)" 1; [ ! -d "$CFG/cache/statusline/budget-usage.lock" ]
+    mkdir "$CFG/cache/statusline/spend-usage.lock"; printf '%s\n' "$(( STAMP - 301 ))" > "$CFG/cache/statusline/spend-usage.lock/stamp"
+    aged 600; tick; assert_equal "$(curl_calls)" 1; [ ! -d "$CFG/cache/statusline/spend-usage.lock" ]
 }
 @test "a lock without a stamp counts as stale" {
-    mkdir "$CFG/cache/statusline/budget-usage.lock"; aged 600; tick; assert_equal "$(curl_calls)" 1
+    mkdir "$CFG/cache/statusline/spend-usage.lock"; aged 600; tick; assert_equal "$(curl_calls)" 1
 }
 @test "two renders while one refresh is in flight make one request" {
     aged 600
     FAKE_CURL_SLEEP=0.5 render "$NOW"; render "$NOW"; render "$NOW"
     wait_refresh; assert_equal "$(curl_calls)" 1
 }
-@test "the lock is released after the refresh" { aged 600; tick; [ ! -d "$CFG/cache/statusline/budget-usage.lock" ]; }
-@test "CLAUDE_BUDGET_REFRESH=120: 117 s is fresh, 120 s is stale" {
-    aged 117; tick CLAUDE_BUDGET_REFRESH=120; assert_equal "$(curl_calls)" 0
-    aged 120; tick CLAUDE_BUDGET_REFRESH=120; assert_equal "$(curl_calls)" 1
+@test "the lock is released after the refresh" { aged 600; tick; [ ! -d "$CFG/cache/statusline/spend-usage.lock" ]; }
+@test "CLAUDE_SPEND_REFRESH=120: 117 s is fresh, 120 s is stale" {
+    aged 117; tick CLAUDE_SPEND_REFRESH=120; assert_equal "$(curl_calls)" 0
+    aged 120; tick CLAUDE_SPEND_REFRESH=120; assert_equal "$(curl_calls)" 1
 }
-@test "CLAUDE_BUDGET_REFRESH below 10 clamps to 10" {
-    aged 9;  tick CLAUDE_BUDGET_REFRESH=5; assert_equal "$(curl_calls)" 0
-    aged 10; tick CLAUDE_BUDGET_REFRESH=5; assert_equal "$(curl_calls)" 1
+@test "CLAUDE_SPEND_REFRESH below 10 clamps to 10" {
+    aged 9;  tick CLAUDE_SPEND_REFRESH=5; assert_equal "$(curl_calls)" 0
+    aged 10; tick CLAUDE_SPEND_REFRESH=5; assert_equal "$(curl_calls)" 1
 }
-@test "a non-integer CLAUDE_BUDGET_REFRESH falls back to 60" {
-    aged 57; tick CLAUDE_BUDGET_REFRESH=soon; assert_equal "$(curl_calls)" 0   # 57: room for the fake clock's jitter, as above
-    aged 60; tick CLAUDE_BUDGET_REFRESH=soon; assert_equal "$(curl_calls)" 1
+@test "a non-integer CLAUDE_SPEND_REFRESH falls back to 60" {
+    aged 57; tick CLAUDE_SPEND_REFRESH=soon; assert_equal "$(curl_calls)" 0   # 57: room for the fake clock's jitter, as above
+    aged 60; tick CLAUDE_SPEND_REFRESH=soon; assert_equal "$(curl_calls)" 1
 }
 @test "the refresh never blocks the render" {
     aged 600; local t0 t1; t0=$(date +%s%N); FAKE_CURL_SLEEP=2 render "$NOW"; t1=$(date +%s%N)

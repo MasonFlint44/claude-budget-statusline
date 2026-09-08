@@ -7,9 +7,9 @@ cache     on                       the prompt-cache cue (· cache 42m, · cache 
 day       on                       the day bar with its spend and allowance (day:███░░ 64% $9.40/$15)
 month     on                       the month bar with its spend, limit and overage (month:██│█░ 36% $143/$400 +$50)
 pace      on                       the pace tick in the month bar (│)
-age       on                       the stale-fetch tag after the budget bars (·12m)
+age       on                       the stale-fetch tag after the spend bars (·12m)
 repo      on                       the whole repository row
-path      on                       the working directory (~/claude-budget-statusline)
+path      on                       the working directory (~/claude-spend-statusline)
 branch    on                       the branch, with the repository name when the directory is named differently (⎇  feature/preview)
 pending   on                       uncommitted lines (· pending +16)
 upstream  on                       commits ahead of and behind upstream (↑1↓2)

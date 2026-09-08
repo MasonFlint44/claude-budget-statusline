@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Claude Code statusline with a daily + monthly spend budget, read from the
+# Claude Code statusline with daily + monthly spend bars, read from the
 # same usage endpoint the /usage page renders (real billed dollars; the monthly
 # limit comes from the org). Plus model, effort, context, session cost, git.
 #
 # Ships as: this file + config/calendar.conf + config/display.conf (see
-# README.md for install and prerequisites). `budget-statusline.sh --calendar
+# README.md for install and prerequisites). `spend-statusline.sh --calendar
 # [YEAR]` prints the calendar; `--display` lists the elements and which show.
 #
 #   day: today's spend vs today's allowance, where the allowance divides the
@@ -29,12 +29,12 @@
 #        five minutes), "cache cold ↻38k" once it has expired, with the tokens
 #        the next request re-caches.
 #
-# The monthly limit is CLAUDE_BUDGET_MONTHLY_LIMIT if set (your own target,
+# The monthly limit is CLAUDE_SPEND_MONTHLY_LIMIT if set (your own target,
 # even when the org sets a higher one), else the limit in the usage response.
-# With neither, the budget bars stay hidden.
+# With neither, the spend bars stay hidden.
 #
 # Wire-up (~/.claude/settings.json):
-#   "statusLine": { "type": "command", "command": "bash /path/to/budget-statusline.sh" }
+#   "statusLine": { "type": "command", "command": "bash /path/to/spend-statusline.sh" }
 
 # printf and awk must parse "42.5" regardless of the user's locale, and the
 # --calendar listing prints English day and month names whatever the locale
@@ -42,24 +42,24 @@
 # keep only its character set and pin the numeric and time categories.
 if [ -n "${LC_ALL:-}" ]; then export LC_CTYPE="$LC_ALL"; unset LC_ALL; fi
 export LC_NUMERIC=C LC_TIME=C
-VERSION=2.6.3   # kept equal to .claude-plugin/plugin.json's version (the tests check)
+VERSION=2.7.0   # kept equal to .claude-plugin/plugin.json's version (the tests check)
 # Bash 4.4+ (mapfile -d, ${var,,}, printf %()T). This guard is the first
 # thing that runs and uses only bash 3 syntax, so an old bash (macOS ships
 # 3.2) gets one clear line instead of a syntax error further down. Every
 # code path, the statusline render included, exits here.
 if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
     case "$(uname -s 2>/dev/null)" in
-        Darwin) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Run: brew install bash, then /budget-statusline:install in Claude Code, which wires the new bash into the statusLine command for you." >&2 ;;
-        *) echo "budget-statusline: bash $BASH_VERSION is too old, 4.4+ needed." >&2 ;;
+        Darwin) echo "spend-statusline: bash $BASH_VERSION is too old, 4.4+ needed. Run: brew install bash, then /spend-statusline:install in Claude Code, which wires the new bash into the statusLine command for you." >&2 ;;
+        *) echo "spend-statusline: bash $BASH_VERSION is too old, 4.4+ needed." >&2 ;;
     esac
     exit 1
 fi
 SCRIPT_DIR=$(readlink -f "${BASH_SOURCE[0]:-$0}"); SCRIPT_DIR="${SCRIPT_DIR%/*}"
-# The budget clock: CLAUDE_BUDGET_TZ if set (any TZ name), else local time.
-BUDGET_TZ="${CLAUDE_BUDGET_TZ:-}"
-# bstamp FMT VAR: the current time on the budget clock, formatted by the
+# The spend clock: CLAUDE_SPEND_TZ if set (any TZ name), else local time.
+SPEND_TZ="${CLAUDE_SPEND_TZ:-}"
+# bstamp FMT VAR: the current time on the spend clock, formatted by the
 # printf builtin (no process; POSIX strftime conversions only), into VAR.
-bstamp() { if [ -n "$BUDGET_TZ" ]; then TZ="$BUDGET_TZ" printf -v "$2" "%($1)T" -1; else printf -v "$2" "%($1)T" -1; fi; }
+bstamp() { if [ -n "$SPEND_TZ" ]; then TZ="$SPEND_TZ" printf -v "$2" "%($1)T" -1; else printf -v "$2" "%($1)T" -1; fi; }
 days_in_month() {  # YYYY MM -> DIM
     local y=$((10#$1)) m=$((10#$2))
     case $m in
@@ -67,12 +67,12 @@ days_in_month() {  # YYYY MM -> DIM
         4|6|9|11) DIM=30 ;; *) DIM=31 ;;
     esac
 }
-# The calendar: CLAUDE_BUDGET_CALENDAR if set (a path, or off), else config/calendar.conf.
-CALENDAR="${CLAUDE_BUDGET_CALENDAR:-$SCRIPT_DIR/config/calendar.conf}"
+# The calendar: CLAUDE_SPEND_CALENDAR if set (a path, or off), else config/calendar.conf.
+CALENDAR="${CLAUDE_SPEND_CALENDAR:-$SCRIPT_DIR/config/calendar.conf}"
 case "${CALENDAR,,}" in off|none|no|0|false) CALENDAR="" ;; esac   # no file: workdays mon-fri, no holidays
-# Which elements show: CLAUDE_BUDGET_DISPLAY if set (a path, or off), else config/display.conf.
-DISPLAY_SRC="CLAUDE_BUDGET_DISPLAY=${CLAUDE_BUDGET_DISPLAY:-}"
-DISPLAY_FILE="${CLAUDE_BUDGET_DISPLAY:-$SCRIPT_DIR/config/display.conf}"
+# Which elements show: CLAUDE_SPEND_DISPLAY if set (a path, or off), else config/display.conf.
+DISPLAY_SRC="CLAUDE_SPEND_DISPLAY=${CLAUDE_SPEND_DISPLAY:-}"
+DISPLAY_FILE="${CLAUDE_SPEND_DISPLAY:-$SCRIPT_DIR/config/display.conf}"
 
 # --- Calendar (config/calendar.conf) ---
 # Which days of the week you work and which dates are holidays, so the daily
@@ -394,9 +394,9 @@ display_info() {
         day)      D_NEEDS="";       D_WHAT="the day bar with its spend and allowance (day:███░░ 64% \$9.40/\$15)" ;;
         month)    D_NEEDS="";       D_WHAT="the month bar with its spend, limit and overage (month:██│█░ 36% \$143/\$400 +\$50)" ;;
         pace)     D_NEEDS=month;    D_WHAT="the pace tick in the month bar (│)" ;;
-        age)      D_NEEDS="day or month"; D_WHAT="the stale-fetch tag after the budget bars (·12m)" ;;
+        age)      D_NEEDS="day or month"; D_WHAT="the stale-fetch tag after the spend bars (·12m)" ;;
         repo)     D_NEEDS="";       D_WHAT="the whole repository row" ;;
-        path)     D_NEEDS=repo;     D_WHAT="the working directory (~/claude-budget-statusline)" ;;
+        path)     D_NEEDS=repo;     D_WHAT="the working directory (~/claude-spend-statusline)" ;;
         branch)   D_NEEDS=repo;     D_WHAT="the branch, with the repository name when the directory is named differently (⎇  feature/preview)" ;;
         pending)  D_NEEDS=branch;   D_WHAT="uncommitted lines (· pending +16)" ;;
         upstream) D_NEEDS=branch;   D_WHAT="commits ahead of and behind upstream (↑1↓2)" ;;
@@ -450,18 +450,18 @@ display_where() {
 
 usage() {
     cat <<EOF
-usage: budget-statusline.sh                 render the statusline from Claude Code's JSON on stdin
-       budget-statusline.sh --calendar [YYYY] list the calendar in use: work week, observed holidays,
+usage: spend-statusline.sh                  render the statusline from Claude Code's JSON on stdin
+       spend-statusline.sh --calendar [YYYY]  list the calendar in use: work week, observed holidays,
                                             this month's workday counts (default: the current year)
-       budget-statusline.sh --display [FILE]  list the elements: which show, which the display
+       spend-statusline.sh --display [FILE]   list the elements: which show, which the display
                                             file hides (default: the file in use)
-       budget-statusline.sh --doctor          explain the budget bars: credentials, one live fetch of
+       spend-statusline.sh --doctor           explain the spend bars: credentials, one live fetch of
                                             the usage endpoint, the limit and the cache; exit 1 if
                                             the bars would be hidden
-       budget-statusline.sh --help
-Knobs (environment): CLAUDE_BUDGET_MONTHLY_LIMIT CLAUDE_BUDGET_TZ CLAUDE_BUDGET_REFRESH
-                     CLAUDE_BUDGET_CALENDAR CLAUDE_BUDGET_DISPLAY CLAUDE_CONFIG_DIR
-budget-statusline $VERSION  https://github.com/MasonFlint44/claude-budget-statusline
+       spend-statusline.sh --help
+Knobs (environment): CLAUDE_SPEND_MONTHLY_LIMIT CLAUDE_SPEND_TZ CLAUDE_SPEND_REFRESH
+                     CLAUDE_SPEND_CALENDAR CLAUDE_SPEND_DISPLAY CLAUDE_CONFIG_DIR
+spend-statusline $VERSION  https://github.com/MasonFlint44/claude-spend-statusline
 EOF
 }
 case "${1:-}" in
@@ -485,16 +485,16 @@ if [ "${1:-}" = "--display" ]; then
     for line in "${display_bad[@]}"; do echo "display: skipping $line" >&2; done
     exit 0
 fi
-# Both budget bars hidden: nothing to fetch, so no token is read, no request
+# Both spend bars hidden: nothing to fetch, so no token is read, no request
 # made, no cache or lock written.
-budget_wanted=1; shown day || shown month || budget_wanted=0
+spend_wanted=1; shown day || shown month || spend_wanted=0
 if [ "${1:-}" = "--calendar" ]; then
     case "${2:-}" in ''|[0-9][0-9][0-9][0-9]) [ $# -le 2 ] ;; *) false ;; esac || { usage >&2; exit 2; }
     bstamp '%Y %m %e %u %B' stamp
     # shellcheck disable=SC2154  # stamp is set by bstamp's printf -v
     read -r cy cm cdom cdow cmonth <<< "$stamp"
     y=$((10#${2:-$cy}))
-    if [ -z "$CALENDAR" ]; then echo "calendar: disabled (CLAUDE_BUDGET_CALENDAR=$CLAUDE_BUDGET_CALENDAR): workdays mon-fri, no holidays"
+    if [ -z "$CALENDAR" ]; then echo "calendar: disabled (CLAUDE_SPEND_CALENDAR=$CLAUDE_SPEND_CALENDAR): workdays mon-fri, no holidays"
     elif [ ! -r "$CALENDAR" ]; then echo "calendar: no file at $CALENDAR: workdays mon-fri, no holidays"
     else echo "calendar: $CALENDAR"
     fi
@@ -683,34 +683,34 @@ fmt_money() {
 # local token pricing to drift.
 # The endpoint has no per-day figure, so today's spend is derived: the month
 # total the first time each day is seen becomes that day's baseline
-# (cache/statusline/budget-usage.daystart), and daily = month - baseline. Accurate from the first
+# (cache/statusline/spend-usage.daystart), and daily = month - baseline. Accurate from the first
 # refresh of the day; a month rollover (month < baseline) resets the baseline.
 #
-# CLOCK: the day bar and the workday count run on the budget clock:
-# CLAUDE_BUDGET_TZ if set (any TZ name, e.g. UTC or America/New_York), else
+# CLOCK: the day bar and the workday count run on the spend clock:
+# CLAUDE_SPEND_TZ if set (any TZ name, e.g. UTC or America/New_York), else
 # local time. The month figure is server-side and unaffected. The page has no
 # per-day number to reconcile against, so "today" is the calendar day on that
 # clock: on local time an 8 PM session counts as that day's spend against
 # that day's allowance, not the next UTC day's. Only wrinkle: the page's
-# month counter resets at 00:00 UTC on the last day, so if the budget clock
+# month counter resets at 00:00 UTC on the last day, so if the spend clock
 # lags UTC that evening's baseline re-pins via the month<baseline guard and
 # the day bar shows only post-reset spend until midnight.
-MONTHLY_LIMIT="${CLAUDE_BUDGET_MONTHLY_LIMIT:-0}"   # your own monthly target; 0 = use the response's limit
+MONTHLY_LIMIT="${CLAUDE_SPEND_MONTHLY_LIMIT:-0}"   # your own monthly target; 0 = use the response's limit
 is_num "$MONTHLY_LIMIT" || MONTHLY_LIMIT=0
 # Cache lives INSIDE the config dir (not ~/.cache) so a devcontainer that mounts
 # ~/.claude gets the credentials, the cache, and the day-start baseline together.
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 CACHE_DIR="$CLAUDE_DIR/cache/statusline"
-CACHE_FILE="$CACHE_DIR/budget-usage"
-BASE_FILE="$CACHE_DIR/budget-usage.daystart"
-LOCK_DIR="$CACHE_DIR/budget-usage.lock"
-HOLD_FILE="$CACHE_DIR/budget-usage.hold"   # epoch before which no fetch is attempted (after a failure)
-REFRESH_INTERVAL="${CLAUDE_BUDGET_REFRESH:-60}"   # seconds between usage fetches
+CACHE_FILE="$CACHE_DIR/spend-usage"
+BASE_FILE="$CACHE_DIR/spend-usage.daystart"
+LOCK_DIR="$CACHE_DIR/spend-usage.lock"
+HOLD_FILE="$CACHE_DIR/spend-usage.hold"   # epoch before which no fetch is attempted (after a failure)
+REFRESH_INTERVAL="${CLAUDE_SPEND_REFRESH:-60}"   # seconds between usage fetches
 is_int "$REFRESH_INTERVAL" || REFRESH_INTERVAL=60
 [ "$REFRESH_INTERVAL" -ge 10 ] || REFRESH_INTERVAL=10
-[ "$budget_wanted" = 1 ] && { [ -d "$CACHE_DIR" ] || mkdir -p "$CACHE_DIR" 2>/dev/null; }
+[ "$spend_wanted" = 1 ] && { [ -d "$CACHE_DIR" ] || mkdir -p "$CACHE_DIR" 2>/dev/null; }
 
-# The clock, from the printf builtin: epoch now, and on the budget clock
+# The clock, from the printf builtin: epoch now, and on the spend clock
 # today's date, day of month, day of week and year-month.
 printf -v now '%(%s)T' -1
 bstamp '%Y-%m-%d %e %u %Y-%m' stamp; read -r today dom dow ym <<< "$stamp"
@@ -802,7 +802,7 @@ store_usage() {
     # Your own target wins over the org's; neither -> 0 -> bars hidden.
     is_pos "$MONTHLY_LIMIT" && limit="$MONTHLY_LIMIT"
     is_pos "$limit" || limit=0
-    # Day-start baseline: first sighting of a budget-clock day pins the month total.
+    # Day-start baseline: first sighting of a spend-clock day pins the month total.
     local b_date b_month
     read -r b_date b_month < "$BASE_FILE" 2>/dev/null
     if [ "$b_date" != "$today" ] || ! is_num "${b_month:-}" || ! awk -v m="$month" -v b="$b_month" 'BEGIN{exit !(m >= b)}'; then
@@ -825,7 +825,7 @@ if [ "${1:-}" = "--doctor" ]; then
     [ $# -le 1 ] || { usage >&2; exit 2; }
     doc() { printf '%-14s%s\n' "$1" "$2"; }
     fail() { doc "$1" "$2"; doc "bars:" "hidden"; exit 1; }
-    doc "version:" "budget-statusline $VERSION"
+    doc "version:" "spend-statusline $VERSION"
     # Tools first: without jq every later step would misreport its cause.
     # The hint names the command for this platform's package manager.
     install_hint() {   # PKGS... -> HINT
@@ -852,9 +852,9 @@ if [ "${1:-}" = "--doctor" ]; then
     doc "tools:" "bash $BASH_VERSION, jq, curl, awk, readlink$gitnote"
     doc "config dir:" "$CLAUDE_DIR"
     bstamp '%Y %B' stamp; read -r cy cmonth <<< "$stamp"
-    doc "budget clock:" "${BUDGET_TZ:-local time}, today $today"
+    doc "spend clock:" "${SPEND_TZ:-local time}, today $today"
     cal_load "$CALENDAR"; read_calendar_settings ""
-    if [ -z "$CALENDAR" ]; then doc "calendar:" "off (CLAUDE_BUDGET_CALENDAR=$CLAUDE_BUDGET_CALENDAR): workdays mon-fri, no holidays"
+    if [ -z "$CALENDAR" ]; then doc "calendar:" "off (CLAUDE_SPEND_CALENDAR=$CLAUDE_SPEND_CALENDAR): workdays mon-fri, no holidays"
     elif [ ! -r "$CALENDAR" ]; then doc "calendar:" "no file at $CALENDAR: workdays mon-fri, no holidays"
     else
         warnings=$(CALENDAR_VERBOSE=1 holidays_for_years "$cy" 2>&1 >/dev/null | grep -c .)
@@ -874,7 +874,7 @@ if [ "${1:-}" = "--doctor" ]; then
         note=""; [ ${#display_bad[@]} -gt 0 ] && note=", ${#display_bad[@]} line(s) not parsed (see --display)"
         doc "display:" "$DISPLAY_FILE: hidden $hid$note"
     fi
-    if [ "$budget_wanted" = 0 ]; then doc "bars:" "hidden by $DISPLAY_FILE (day and month both hidden), so nothing is fetched"; exit 0; fi
+    if [ "$spend_wanted" = 0 ]; then doc "bars:" "hidden by $DISPLAY_FILE (day and month both hidden), so nothing is fetched"; exit 0; fi
     read_token || fail "credentials:" "$TOK_ERR"
     left=$(( TOK_EXP / 1000 - now ))
     doc "credentials:" "$TOK_SRC: OAuth token present${TOK_EXP:+, expires in $(( left / 3600 ))h $(( left % 3600 / 60 ))m}"
@@ -891,9 +891,9 @@ if [ "${1:-}" = "--doctor" ]; then
         on) doc "usage fetch:" "HTTP 200: month to date \$$U_MONTH, limit \$$U_LIMIT" ;;
         *) fail "usage fetch:" "HTTP 200, but no spend figure in the response (the plan reports no dollars, or the endpoint changed): ${RESP:0:200}" ;;
     esac
-    if is_pos "$MONTHLY_LIMIT"; then doc "limit:" "\$$MONTHLY_LIMIT from CLAUDE_BUDGET_MONTHLY_LIMIT"
+    if is_pos "$MONTHLY_LIMIT"; then doc "limit:" "\$$MONTHLY_LIMIT from CLAUDE_SPEND_MONTHLY_LIMIT"
     elif is_pos "$U_LIMIT"; then doc "limit:" "\$$U_LIMIT from the response"
-    else fail "limit:" "none: the response carries no limit and CLAUDE_BUDGET_MONTHLY_LIMIT is unset; set one to see the bars"
+    else fail "limit:" "none: the response carries no limit and CLAUDE_SPEND_MONTHLY_LIMIT is unset; set one to see the bars"
     fi
     # store_usage fails when the cache dir is not writable; a leftover cache
     # line from an earlier run would otherwise read back as "refreshed just now".
@@ -908,7 +908,7 @@ fi
 # Read the cache. Its age comes from the stamp inside the line, not the file's
 # mtime, so nothing here depends on stat(1).
 day_cost=""; mo_cost=""; hol_doms=""; wd_mask=""; cache_age=""
-if [ "$budget_wanted" = 1 ] && [ -f "$CACHE_FILE" ]; then
+if [ "$spend_wanted" = 1 ] && [ -f "$CACHE_FILE" ]; then
     read -r c_date c_stamp c_day c_mo c_lim c_mask c_hol < "$CACHE_FILE" 2>/dev/null
     # Yesterday's cache would misreport its daily total as today's: hide instead.
     # A garbled line (non-numeric fields, a malformed workday mask) is treated
@@ -924,7 +924,7 @@ fi
 # older than the interval (a future stamp = clock skew, also stale), and no
 # hold from a recent failed fetch.
 hold_until=""; { read -r hold_until < "$HOLD_FILE"; } 2>/dev/null; is_int "$hold_until" || hold_until=0
-if [ "$budget_wanted" = 1 ] && { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; } \
+if [ "$spend_wanted" = 1 ] && { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REFRESH_INTERVAL" ] || [ "$cache_age" -lt 0 ]; } \
    && [ "$now" -ge "$hold_until" ]; then
     # Clear a stale lock (crashed/killed refresher) so refreshes can't wedge
     # permanently. The lock's own stamp file dates it; rename-then-remove so
@@ -941,7 +941,7 @@ if [ "$budget_wanted" = 1 ] && { [ -z "$cache_age" ] || [ "$cache_age" -ge "$REF
     fi
 fi
 
-# --- Budget math ---
+# --- Spend math ---
 day_pct=""; mo_pct=""; day_allow=""; mo_over=0; day_label="day:"; pace_done=""; pace_total=0
 # No known limit (response had none, no override): the bars stay hidden.
 if [ -n "$day_cost" ] && is_pos "$MONTHLY_LIMIT"; then
@@ -1018,9 +1018,9 @@ have_ctx=0; have_day=0; have_mo=0
 [ -n "$used_pct" ] && have_ctx=1
 [ -n "$day_pct" ]  && have_day=1
 [ -n "$mo_pct" ]   && have_mo=1
-have_budget_figures=$(( have_day | have_mo ))
+have_spend_figures=$(( have_day | have_mo ))
 
-# Money annotations: spent/allotted beside each budget bar, plus a coral
+# Money annotations: spent/allotted beside each spend bar, plus a coral
 # overage tag on the month once past the limit.
 day_money=""; mo_money=""; over_str=""
 if [ "$have_day" = 1 ]; then
@@ -1037,7 +1037,7 @@ fi
 # STALE_AFTER seconds a dim age tag follows the bars: ·12m, ·3h.
 STALE_AFTER=300
 stale_str=""
-if shown age && [ "$have_budget_figures" = 1 ] && is_int "$cache_age" && [ "$cache_age" -ge "$STALE_AFTER" ]; then
+if shown age && [ "$have_spend_figures" = 1 ] && is_int "$cache_age" && [ "$cache_age" -ge "$STALE_AFTER" ]; then
     if [ "$cache_age" -lt 3600 ]; then stale_str="·$(( cache_age / 60 ))m"; else stale_str="·$(( cache_age / 3600 ))h"; fi
 fi
 
@@ -1092,26 +1092,26 @@ mo_chrome=0
 [ -n "$over_str" ]  && mo_chrome=$(( mo_chrome + 1 + ${#over_str} ))
 SEP=3   # width of " | "
 
-# Budget segment: day and month share one " | "-delimited segment, with a space between.
-budget_chrome=0; have_budget=0
+# Spend segment: day and month share one " | "-delimited segment, with a space between.
+spend_chrome=0; have_spend=0
 if [ "$have_day" = 1 ] || [ "$have_mo" = 1 ]; then
-    have_budget=1
-    [ "$have_day" = 1 ] && budget_chrome=$(( budget_chrome + day_chrome ))
+    have_spend=1
+    [ "$have_day" = 1 ] && spend_chrome=$(( spend_chrome + day_chrome ))
     if [ "$have_mo" = 1 ]; then
-        [ "$have_day" = 1 ] && budget_chrome=$(( budget_chrome + 1 ))  # space between day and month
-        budget_chrome=$(( budget_chrome + mo_chrome ))
+        [ "$have_day" = 1 ] && spend_chrome=$(( spend_chrome + 1 ))  # space between day and month
+        spend_chrome=$(( spend_chrome + mo_chrome ))
     fi
     # "·" is one column: the tag's width is its character count.
-    [ -n "$stale_str" ] && budget_chrome=$(( budget_chrome + 1 + ${#stale_str} ))
+    [ -n "$stale_str" ] && spend_chrome=$(( spend_chrome + 1 + ${#stale_str} ))
 fi
 
-# Shared bar width for a row: split the column budget evenly across its bars,
+# Shared bar width for a row: split the available columns evenly across its bars,
 # clamped to the floor. The division remainder (at most nbars-1 columns) is left
 # unfilled rather than making one bar wider than its siblings.
-# Args: <budget> <nbars>. Echoes the width.
+# Args: <columns> <nbars>. Echoes the width.
 equal_width() {
-    local budget=$1 n=$2 w
-    w=$(( budget / n ))
+    local cols=$1 n=$2 w
+    w=$(( cols / n ))
     (( w < BAR_MIN )) && w=$BAR_MIN
     echo "$w"
 }
@@ -1142,7 +1142,7 @@ pace_cell() {
     [ "$PACE" -gt $(( $1 - 1 )) ] && PACE=$(( $1 - 1 ))
     return 0
 }
-build_budget() {  # $1 = day width, $2 = mo width
+build_spend() {  # $1 = day width, $2 = mo width
     local s=""
     if [ "$have_day" = 1 ]; then
         s="$day_label$(bar "$day_pct" "$1")"
@@ -1316,8 +1316,8 @@ join_parts() {  # join non-empty args with " | "
 nparts=0
 [ -n "$model" ]         && nparts=$(( nparts + 1 ))
 [ "$have_ctx" = 1 ]     && nparts=$(( nparts + 1 ))
-[ "$have_budget" = 1 ]  && nparts=$(( nparts + 1 ))
-one_fixed=$(( model_w + ctx_chrome + budget_chrome ))
+[ "$have_spend" = 1 ]  && nparts=$(( nparts + 1 ))
+one_fixed=$(( model_w + ctx_chrome + spend_chrome ))
 [ "$nparts" -gt 1 ] && one_fixed=$(( one_fixed + (nparts - 1) * SEP ))
 nbars=$(( have_ctx + have_day + have_mo ))
 min_bars=$(( nbars * BAR_MIN ))
@@ -1325,11 +1325,11 @@ min_bars=$(( nbars * BAR_MIN ))
 BAR_W=$BAR_NOM
 
 if [ $(( one_fixed + min_bars )) -le "$avail" ]; then
-    # ---------- ONE LINE: split the row's budget evenly across all bars ----------
+    # ---------- ONE LINE: split the row's columns evenly across all bars ----------
     [ "$nbars" -gt 0 ] && BAR_W=$(equal_width $(( avail - one_fixed )) "$nbars")
-    out=$(join_parts "$(build_model)" "$(build_ctx "$BAR_W")" "$(build_budget "$BAR_W" "$BAR_W")")
+    out=$(join_parts "$(build_model)" "$(build_ctx "$BAR_W")" "$(build_spend "$BAR_W" "$BAR_W")")
 else
-    # ---------- TWO LINES: identity+context on row 1, day+month budget on row 2 ----------
+    # ---------- TWO LINES: identity+context on row 1, day+month spend on row 2 ----------
     # Each row could afford a different width; the tighter row sets the shared
     # width so bars still match across rows (the roomier row runs short).
     l1_nparts=0; [ -n "$model" ] && l1_nparts=$(( l1_nparts + 1 )); [ "$have_ctx" = 1 ] && l1_nparts=$(( l1_nparts + 1 ))
@@ -1339,7 +1339,7 @@ else
 
     w1=""; w2=""
     [ "$have_ctx" = 1 ]   && w1=$(equal_width $(( avail - l1_fixed )) 1)
-    [ "$l2_nbars" -gt 0 ] && w2=$(equal_width $(( avail - budget_chrome )) "$l2_nbars")
+    [ "$l2_nbars" -gt 0 ] && w2=$(equal_width $(( avail - spend_chrome )) "$l2_nbars")
     if [ -n "$w1" ] && [ -n "$w2" ]; then
         BAR_W=$(( w1 < w2 ? w1 : w2 ))
     elif [ -n "$w1" ]; then BAR_W=$w1
@@ -1347,7 +1347,7 @@ else
     fi
 
     line1=$(join_parts "$(build_model)" "$(build_ctx "$BAR_W")")
-    line2=$(build_budget "$BAR_W" "$BAR_W")
+    line2=$(build_spend "$BAR_W" "$BAR_W")
 
     out="$line1"
     if [ -n "$line2" ]; then [ -n "$out" ] && out="$out"$'\n'"$line2" || out="$line2"; fi

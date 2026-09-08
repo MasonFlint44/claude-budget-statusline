@@ -1,6 +1,6 @@
-# claude-budget-statusline
+# claude-spend-statusline
 
-One bash script, `statusline/budget-statusline.sh`, rendered by Claude Code as
+One bash script, `statusline/spend-statusline.sh`, rendered by Claude Code as
 the status line, plus four skills under `skills/` that install and configure it.
 `README.md` is the user manual and documents every knob and display element.
 
@@ -8,7 +8,7 @@ the status line, plus four skills under `skills/` that install and configure it.
 
 ```
 bats tests/                        # about 30 s, no network
-shellcheck statusline/budget-statusline.sh tests/skills/run.sh tests/skills/triggers.sh tests/bin/curl
+shellcheck statusline/spend-statusline.sh tests/skills/run.sh tests/skills/triggers.sh tests/bin/curl
 UPDATE=1 bats tests/calendar.bats  # only when a golden listing should change; review the diff
 DOCKER=1 bats tests/compat.bats    # bash 3.2 / 4.3 / 4.4 images; CI runs this
 ```
@@ -47,4 +47,4 @@ DOCKER=1 bats tests/compat.bats    # bash 3.2 / 4.3 / 4.4 images; CI runs this
    push the tag, and `gh release create vX.Y.Z` with the same notes.
 4. The marketplace (`~/git/claude-toolbox`) carries no version for this plugin, so
    a release never touches it. Locally: `claude plugin update
-   budget-statusline@claude-toolbox`, then `/budget-statusline:install` again.
+   spend-statusline@claude-toolbox`, then `/spend-statusline:install` again.

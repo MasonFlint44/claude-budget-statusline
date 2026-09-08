@@ -49,11 +49,11 @@ render10() { COLUMNS_OVERRIDE=60 render "$@"; }
     cache_line "2026-09-08 09:30:00" "0 120 400 1111100"; render10 "2026-09-08 09:30:00"
     assert_equal "$(month_bar)" "███│░░░░░░ 30%"
 }
-@test "the budget clock places the tick: Sun 20:00 in Chicago is Monday in Auckland, one more workday elapsed" {
+@test "the spend clock places the tick: Sun 20:00 in Chicago is Monday in Auckland, one more workday elapsed" {
     cache_line "2026-09-20 20:00:00" "1 100 400 1111100 7"; render10 "2026-09-20 20:00:00"
     assert_equal "$(month_bar)" "███░░░│░░░ 25%"   # 13 of 21
-    cache_line "2026-09-20 20:00:00" "1 100 400 1111100 7" CLAUDE_BUDGET_TZ=Pacific/Auckland
-    render10 "2026-09-20 20:00:00" CLAUDE_BUDGET_TZ=Pacific/Auckland
+    cache_line "2026-09-20 20:00:00" "1 100 400 1111100 7" CLAUDE_SPEND_TZ=Pacific/Auckland
+    render10 "2026-09-20 20:00:00" CLAUDE_SPEND_TZ=Pacific/Auckland
     assert_equal "$(month_bar)" "███░░░░│░░ 25%"   # 14 of 21
 }
 @test "a month with no workdays at all has no tick" {

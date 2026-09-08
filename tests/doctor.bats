@@ -7,11 +7,11 @@ doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; 
 
 @test "--help exits 0 and names every flag and knob" {
     run bash "$SL" --help; assert_status 0
-    assert_has "--calendar" "--display" "--doctor" "--help" "CLAUDE_BUDGET_MONTHLY_LIMIT" "CLAUDE_BUDGET_TZ" "CLAUDE_BUDGET_REFRESH" "CLAUDE_BUDGET_CALENDAR" "CLAUDE_BUDGET_DISPLAY" "CLAUDE_CONFIG_DIR"
+    assert_has "--calendar" "--display" "--doctor" "--help" "CLAUDE_SPEND_MONTHLY_LIMIT" "CLAUDE_SPEND_TZ" "CLAUDE_SPEND_REFRESH" "CLAUDE_SPEND_CALENDAR" "CLAUDE_SPEND_DISPLAY" "CLAUDE_CONFIG_DIR"
     run bash "$SL" -h; assert_status 0
 }
 @test "the script's VERSION matches plugin.json" {
-    run bash "$SL" --help; assert_has "budget-statusline $(jq -r .version "$TESTS_DIR/../.claude-plugin/plugin.json")"
+    run bash "$SL" --help; assert_has "spend-statusline $(jq -r .version "$TESTS_DIR/../.claude-plugin/plugin.json")"
 }
 @test "--doctor with an argument is rejected" { run bash "$SL" --doctor now; assert_status 2; assert_has "usage:"; }
 @test "--doctor reads nothing from stdin" {
@@ -26,9 +26,9 @@ doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; 
     line=$(cut -d' ' -f3- "$(cache_path)"); assert_equal "${line% }" "0 120 400 1111100 7"; [ ! -e "$HOLD" ]
 }
 @test "the calendar line reports unparsed lines and the off state" {
-    doctor CLAUDE_BUDGET_CALENDAR="$TESTS_DIR/calendars/bad-lines.conf"; assert_status 0; assert_has "line(s) not parsed (see --calendar)"
-    doctor CLAUDE_BUDGET_CALENDAR=off; assert_has "calendar:     off (CLAUDE_BUDGET_CALENDAR=off)" "18 workday(s) left"
-    doctor CLAUDE_BUDGET_CALENDAR=/nope; assert_has "no file at /nope"
+    doctor CLAUDE_SPEND_CALENDAR="$TESTS_DIR/calendars/bad-lines.conf"; assert_status 0; assert_has "line(s) not parsed (see --calendar)"
+    doctor CLAUDE_SPEND_CALENDAR=off; assert_has "calendar:     off (CLAUDE_SPEND_CALENDAR=off)" "18 workday(s) left"
+    doctor CLAUDE_SPEND_CALENDAR=/nope; assert_has "no file at /nope"
 }
 @test "no credentials file: says so, exit 1, nothing fetched" {
     rm "$CREDS"; doctor; assert_status 1; assert_has "credentials:  no credentials file at $CREDS" "log in with claude" "bars:         hidden"
@@ -51,9 +51,9 @@ doctor() { run at "$NOW" env CLAUDE_CONFIG_DIR="$CFG" "$@" bash "$SL" --doctor; 
     FAKE_CURL_BODY='{"five_hour":{"utilization":3}}' doctor; assert_status 1; assert_has "no spend figure in the response" '{"five_hour"'
 }
 @test "no limit anywhere: exit 1 and the knob named; the knob fixes it" {
-    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"exponent":2}}}' doctor; assert_status 1; assert_has "limit:        none" "CLAUDE_BUDGET_MONTHLY_LIMIT"
-    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"exponent":2}}}' doctor CLAUDE_BUDGET_MONTHLY_LIMIT=300; assert_status 0
-    assert_has "limit:        \$300 from CLAUDE_BUDGET_MONTHLY_LIMIT" "month \$120, limit \$300"
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"exponent":2}}}' doctor; assert_status 1; assert_has "limit:        none" "CLAUDE_SPEND_MONTHLY_LIMIT"
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000,"exponent":2}}}' doctor CLAUDE_SPEND_MONTHLY_LIMIT=300; assert_status 0
+    assert_has "limit:        \$300 from CLAUDE_SPEND_MONTHLY_LIMIT" "month \$120, limit \$300"
 }
 @test "a Keychain fallback is never tried on Linux" {
     rm "$CREDS"; mkdir -p "$BATS_TEST_TMPDIR/bin"

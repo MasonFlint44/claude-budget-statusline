@@ -1,6 +1,6 @@
 [
   {
-    "query": "I'm off next week, add it to my budget calendar",
+    "query": "I'm off next week, add it to my spend calendar",
     "should_trigger": true
   },
   {
@@ -8,7 +8,7 @@
     "should_trigger": true
   },
   {
-    "query": "we work Sunday to Thursday here, update the work week the budget uses",
+    "query": "we work Sunday to Thursday here, update the work week the spend statusline uses",
     "should_trigger": true
   },
   {
@@ -28,7 +28,7 @@
     "should_trigger": true
   },
   {
-    "query": "show my budget calendar",
+    "query": "show my spend calendar",
     "should_trigger": true
   },
   {
@@ -36,15 +36,15 @@
     "should_trigger": true
   },
   {
-    "query": "the office is closed Dec 24, add a one-off closure to the budget calendar",
+    "query": "the office is closed Dec 24, add a one-off closure to the spend calendar",
     "should_trigger": true
   },
   {
-    "query": "install the budget statusline",
+    "query": "install the spend statusline",
     "should_trigger": false
   },
   {
-    "query": "my budget bars are blank, what's wrong",
+    "query": "my spend bars are blank, what's wrong",
     "should_trigger": false
   },
   {
@@ -68,7 +68,7 @@
     "should_trigger": true
   },
   {
-    "query": "change the timezone the budget statusline uses to UTC",
+    "query": "change the timezone the spend statusline uses to UTC",
     "should_trigger": false
   },
   {

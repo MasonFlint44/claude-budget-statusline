@@ -1,7 +1,7 @@
-# claude-budget-statusline
+# claude-spend-statusline
 
 A two-line statusline for Claude Code: model, effort, context use, session
-cost, the prompt cache's countdown and two budget bars on the first line;
+cost, the prompt cache's countdown and two spend bars on the first line;
 directory, branch and diff on the second. Every element can be switched off
 in `config/display.conf` (see [Elements](#elements)).
 
@@ -9,7 +9,7 @@ in `config/display.conf` (see [Elements](#elements)).
 
 ```
 Opus · high | ctx:█████░░░░░░ 43% $3.72 · cache 42m | day:███████░░░░ 64% $9.40/$15 month:██│█░░░░░░░ 36% $143/$400
-~/claude-budget-statusline ⎇  feature/preview · pending +16 · vs main +30 · session +118/-27
+~/claude-spend-statusline ⎇  feature/preview · pending +16 · vs main +30 · session +118/-27
 ```
 
 A Friday afternoon: $9.40 of today's $15 allowance spent, $143 of the $400
@@ -23,10 +23,10 @@ minutes a dim `·12m` age tag closes the segment. In a linked worktree
 add`) the second line starts from the main repository instead:
 
 ```
-~/claude-budget-statusline › wt-demo ⎇  feature/wt · pending +16
+~/claude-spend-statusline › wt-demo ⎇  feature/wt · pending +16
 ```
 
-The budget bars:
+The spend bars:
 
 - **day** — today's spend against today's allowance. The allowance divides the
   month's *remaining* budget evenly over the remaining workdays of the month
@@ -61,7 +61,7 @@ billing, where the `/usage` page shows dollars; see Prerequisites.
 ## Elements
 
 Everything the statusline can show, by name. The first line holds the
-model, the context and the budget bars (the budget bars move to a row of
+model, the context and the spend bars (the spend bars move to a row of
 their own when the terminal is too narrow for one); the repository row is
 last. Some elements hang off another and go with it when that one is
 hidden.
@@ -78,14 +78,14 @@ hidden.
 | `pace` | `│` | the tick in the month bar: today's place in the month's workdays, so fill short of it is under pace | `month` |
 | `age` | `·12m` | how long since a usage fetch last succeeded, once that is five minutes or more | `day` or `month` |
 | `repo` | | the whole repository row | |
-| `path` | `~/claude-budget-statusline` | the working directory, `~`-shortened and squeezed past 35 characters (`~/g/project`). In a linked worktree: the main repository's path, a dim `›`, then the worktree's name bright (`~/git/project › wt-demo`, with any directory below the worktree after the name) | `repo` |
+| `path` | `~/claude-spend-statusline` | the working directory, `~`-shortened and squeezed past 35 characters (`~/g/project`). In a linked worktree: the main repository's path, a dim `›`, then the worktree's name bright (`~/git/project › wt-demo`, with any directory below the worktree after the name) | `repo` |
 | `branch` | `⎇  feature/preview` | the branch (the short hash when detached), preceded by the remote's repository name in parentheses when the directory is named differently (not in a worktree, where the breadcrumb already says where it lives) | `repo` |
 | `pending` | `· pending +16/-2` | uncommitted lines against HEAD, untracked text files included; its presence is the dirty flag | `branch` |
 | `upstream` | `↑1↓2` | commits ahead of and behind the upstream branch, as of the last fetch (the statusline never fetches) | `branch` |
 | `vs` | `· vs main +30` | lines changed against the default branch, hidden on it | `branch` |
 | `session` | `· session +118/-27` | lines Claude Code has added and removed this session, from its own counters | `repo` |
 
-Every element hides itself when it has nothing to show (no budget figure,
+Every element hides itself when it has nothing to show (no spend figure,
 a clean tree, a session with no edits), so a quiet state collapses to
 `Opus | ctx:… | day:… month:…` over `~/project ⎇  main`.
 
@@ -116,12 +116,12 @@ Names that don't exist are skipped and reported. The rows and their order
 are fixed; the file cannot rearrange them.
 
 ```
-bash statusline/budget-statusline.sh --display
+bash statusline/spend-statusline.sh --display
 ```
 
 prints the file in use and one line per element, `on`, `off`, or `off
 (needs ctx)` for one hidden through its parent, with the description, then
-any line it skipped. The `/budget-statusline:display` skill edits the
+any line it skipped. The `/spend-statusline:display` skill edits the
 installed file for you: "hide the pace tick", "what is hidden", "why did
 the cache cue disappear".
 
@@ -130,7 +130,7 @@ the cache cue disappear".
 > The token is read from the CLI's credentials file, sent only to that host, and
 > never written to disk or logged; the cache holds dollar totals only. The
 > endpoint is not publicly documented and may change without notice; if it
-> does, the budget bars go blank and the rest of the line keeps working
+> does, the spend bars go blank and the rest of the line keeps working
 > (`LIVE=1 bats tests/live.bats` tells you whether it has). This
 > project is not affiliated with or supported by Anthropic.
 
@@ -140,8 +140,8 @@ the cache cue disappear".
 
 ```
 /plugin marketplace add MasonFlint44/claude-toolbox
-/plugin install budget-statusline@claude-toolbox
-/budget-statusline:install
+/plugin install spend-statusline@claude-toolbox
+/spend-statusline:install
 ```
 
 The install skill copies the files to `~/.claude/statusline/`, adds the
@@ -156,18 +156,18 @@ update, which is why the install step exists.
 then add to `~/.claude/settings.json`:
 
 ```json
-"statusLine": { "type": "command", "command": "bash /path/to/statusline/budget-statusline.sh" }
+"statusLine": { "type": "command", "command": "bash /path/to/statusline/spend-statusline.sh" }
 ```
 
 No restart needed: Claude Code picks up the change on its next refresh. The
-first render shows blanks for the budget bars; they fill within a minute once
+first render shows blanks for the spend bars; they fill within a minute once
 the background fetch has run.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `statusline/budget-statusline.sh` | the statusline itself |
+| `statusline/spend-statusline.sh` | the statusline itself |
 | `statusline/config/calendar.conf` | the calendar — which days you work and which dates are holidays. Ships with a Monday-to-Friday week and the US federal holidays; edit to match yours, add closures or PTO as `once` lines. Yours once installed: the installer never overwrites it |
 | `statusline/config/display.conf` | which elements show (see [Elements](#elements)). Ships hiding nothing, with every name described in its comments. Yours once installed, like the calendar |
 
@@ -203,7 +203,7 @@ case-insensitive; only the names are free text.
 To check the calendar:
 
 ```
-bash statusline/budget-statusline.sh --calendar 2027
+bash statusline/spend-statusline.sh --calendar 2027
 ```
 
 It prints the file in use, the work week, the observe policy, every holiday
@@ -214,31 +214,31 @@ observed on the previous December 30 or 31 appears under the new year, the
 way official calendars print it. The workday math itself goes by the observed
 date.
 
-The `/budget-statusline:calendar` skill edits the installed calendar for you: "add PTO
-next week", "we work Sunday to Thursday", "show my budget calendar".
+The `/spend-statusline:calendar` skill edits the installed calendar for you: "add PTO
+next week", "we work Sunday to Thursday", "show my spend calendar".
 
 ## When the bars are blank
 
 Every failure hides the bars the same way, so the script can explain itself:
 
 ```
-bash ~/.claude/statusline/budget-statusline.sh --doctor
+bash ~/.claude/statusline/spend-statusline.sh --doctor
 ```
 
 runs the refresh in the foreground one step at a time (credentials, a live
 fetch of the usage endpoint, the limit, the cache) and stops at the first
 failing step with the reason and the fix; exit 1 means the bars would stay
 hidden. Run it with any knobs your `statusLine` command sets. The
-`/budget-statusline:doctor` skill does the same from inside Claude Code ("my budget
+`/spend-statusline:doctor` skill does the same from inside Claude Code ("my spend
 bars are blank"), finding the installed script for you. The doctor also
 names the display file and what it hides, since a bar switched off there
-is not a failure: with both budget bars hidden it reports that and exits 0.
+is not a failure: with both spend bars hidden it reports that and exits 0.
 `--help` lists the flags and knobs.
 
 ## Prerequisites
 
 - **A Claude Code login through claude.ai on a plan that reports dollar
-  spend.** The budget bars read the CLI's OAuth token from
+  spend.** The spend bars read the CLI's OAuth token from
   `~/.claude/.credentials.json` and need the usage response to carry a
   month-to-date dollar figure, which organization plans with spend billing
   do. With an API key there is no token; with a plan whose `/usage` page
@@ -273,7 +273,7 @@ Other platforms, untested so far (reports welcome):
 The usage endpoint has no per-day figure, so the script derives one: the first
 time it sees a new calendar day it records the month-to-date total as that
 day's baseline, and daily = month − baseline. Accurate from the first refresh
-of the day. The day rolls at **local midnight** unless `CLAUDE_BUDGET_TZ` says
+of the day. The day rolls at **local midnight** unless `CLAUDE_SPEND_TZ` says
 otherwise; the month figure is server-side and rolls at 00:00 UTC on the last
 day. Cache and baseline live in
 `~/.claude/cache/statusline/` (inside the config dir so a devcontainer that
@@ -284,22 +284,22 @@ shows a smaller day figure. The month bar is the same everywhere.
 
 ## Knobs
 
-- `CLAUDE_BUDGET_MONTHLY_LIMIT` — your own monthly target in dollars. Set, it
+- `CLAUDE_SPEND_MONTHLY_LIMIT` — your own monthly target in dollars. Set, it
   is the limit the bars use even if the org's is higher; unset, the limit in
-  the usage response is used. With neither the budget bars stay hidden.
-- `CLAUDE_BUDGET_TZ` — the clock the day bar and workday count run on, as a
+  the usage response is used. With neither the spend bars stay hidden.
+- `CLAUDE_SPEND_TZ` — the clock the day bar and workday count run on, as a
   time zone name (`UTC`, `America/New_York`). Default: local time. A name the
   system doesn't know silently means UTC, as with `TZ`.
-- `CLAUDE_BUDGET_REFRESH` — seconds between usage fetches. Default 60,
+- `CLAUDE_SPEND_REFRESH` — seconds between usage fetches. Default 60,
   minimum 10; anything else falls back to 60. The fetch runs detached and
   never blocks a render. A failed fetch waits one interval before retrying,
   and an HTTP 429 waits five minutes. While fetches keep failing the last
   figures stay up, with a dim age tag (`·12m`, `·3h`) after the bars from
   five minutes on; at midnight they hide, since yesterday's daily total
   would be wrong for today.
-- `CLAUDE_BUDGET_CALENDAR` — path to a calendar file, if not the default;
+- `CLAUDE_SPEND_CALENDAR` — path to a calendar file, if not the default;
   `off` means no file at all: a Monday-to-Friday week with no holidays.
-- `CLAUDE_BUDGET_DISPLAY` — path to a display file, if not the default;
+- `CLAUDE_SPEND_DISPLAY` — path to a display file, if not the default;
   `off` means no file at all: every element shows. What shows is decided
   by the file alone; there are no per-element environment switches.
 - `CLAUDE_CONFIG_DIR` — honored, same as Claude Code.
@@ -307,7 +307,7 @@ shows a smaller day figure. The month bar is the same everywhere.
 `off`, `none`, `no`, `0` and `false` all mean off, in any case.
 
 Set knobs in the environment Claude Code starts from, or inline in the
-`statusLine` command, e.g. `"command": "CLAUDE_BUDGET_TZ=UTC bash /path/to/budget-statusline.sh"`.
+`statusLine` command, e.g. `"command": "CLAUDE_SPEND_TZ=UTC bash /path/to/spend-statusline.sh"`.
 
 ## Tests
 
@@ -328,12 +328,12 @@ and nothing is installed system-wide. One file per area:
 | File | Covers |
 |------|--------|
 | `calendar.bats` | golden `--calendar` listings for the fixtures in `tests/calendars/` (expected output in `tests/expected/`) |
-| `render.bats` | the budget line from a hand-written cache line: labels, allowances, hidden states |
+| `render.bats` | the spend line from a hand-written cache line: labels, allowances, hidden states |
 | `fetch.bats` | the usage fetch through a fake `curl` (`tests/bin/curl`): request shape, response shapes, day-start baseline, limit precedence, every failure's hold |
-| `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_BUDGET_REFRESH` |
+| `trigger.bats` | when a render starts a refresh: cache age, hold, lock, `CLAUDE_SPEND_REFRESH` |
 | `layout.bats` | bar widths across terminal widths, the two-row split, model/effort/context/cost pieces |
-| `pace.bats` | the month bar's pace tick: its cell for workdays, weekends, holidays, the last workday, past the limit, across budget clocks |
-| `display.bats` | the display file: each element hidden alone, dependents following their parent, the row re-flowing, the fetch skipped with both budget bars hidden, the file's parsing, golden `--display` listings |
+| `pace.bats` | the month bar's pace tick: its cell for workdays, weekends, holidays, the last workday, past the limit, across spend clocks |
+| `display.bats` | the display file: each element hidden alone, dependents following their parent, the row re-flowing, the fetch skipped with both spend bars hidden, the file's parsing, golden `--display` listings |
 | `cache.bats` | the prompt-cache cue: countdown, the gold window per TTL, the cold form with its re-cache figure, when it hides, its width |
 | `colors.bats` | the escapes: ramp colours on bars and effort, dim annotations, input text printed verbatim |
 | `repoline.bats` | the location row against a scratch git repository with a remote, and each of its elements hidden through the display file |

@@ -33,8 +33,8 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     printf '2026-09-05 500\n' > "$DAYSTART"; refresh "$NOW"
     assert_equal "$(cat "$DAYSTART")" "2026-09-05 120"; run cache_contents; assert_has " 0 120 400 "
 }
-@test "the budget clock names the day: Auckland is already the 6th" {
-    refresh "$NOW" CLAUDE_BUDGET_TZ=Pacific/Auckland
+@test "the spend clock names the day: Auckland is already the 6th" {
+    refresh "$NOW" CLAUDE_SPEND_TZ=Pacific/Auckland
     [[ "$(cache_contents)" == 2026-09-06\ * ]] || { echo "cache: $(cache_contents)"; false; }
     assert_equal "$(cut -d' ' -f1 "$DAYSTART")" "2026-09-06"
 }
@@ -42,12 +42,12 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     refresh "$NOW"; assert_lacks "month:"          # the first render had no cache yet
     render "$NOW"; assert_has "off:" "month:" " 30% " '$120/$400'
 }
-@test "CLAUDE_BUDGET_MONTHLY_LIMIT overrides the org limit" {
-    refresh "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=250; run cache_contents; assert_has " 120 250 "
+@test "CLAUDE_SPEND_MONTHLY_LIMIT overrides the org limit" {
+    refresh "$NOW" CLAUDE_SPEND_MONTHLY_LIMIT=250; run cache_contents; assert_has " 120 250 "
     render "$NOW"; assert_has '$120/$250' " 48% "
 }
 @test "a non-numeric override is ignored" {
-    refresh "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=lots; run cache_contents; assert_has " 120 400 "
+    refresh "$NOW" CLAUDE_SPEND_MONTHLY_LIMIT=lots; run cache_contents; assert_has " 120 400 "
 }
 @test "no limit in the response and no override: limit 0, bars hidden" {
     FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000}}}' refresh "$NOW"
@@ -55,7 +55,7 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     render "$NOW"; assert_lacks "month:" "day:" "off:"
 }
 @test "no limit in the response but an override: the override is the limit" {
-    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000}}}' refresh "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=300
+    FAKE_CURL_BODY='{"spend":{"used":{"amount_minor":12000}}}' refresh "$NOW" CLAUDE_SPEND_MONTHLY_LIMIT=300
     run cache_contents; assert_has " 120 300 "
 }
 @test "spend.cap.credits is the fallback limit field" {
@@ -67,7 +67,7 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     run cache_contents; assert_has " 12.34 400 "
 }
 @test "the calendar's mask and this month's holidays ride in the cache line" {
-    refresh "$NOW" CLAUDE_BUDGET_CALENDAR="$CAL/sun-thu.conf"
+    refresh "$NOW" CLAUDE_SPEND_CALENDAR="$CAL/sun-thu.conf"
     run cache_contents; assert_has " 1111001 3 12 14 15 16 17 18 19 20 "
 }
 @test "no dollar figure in the response: hold one interval, no cache" {
@@ -90,8 +90,8 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
     setup_stamp; FAKE_CURL_EXIT=7 refresh "$NOW"
     [ ! -e "$(cache_path)" ]; assert_near "$(cat "$HOLD")" "$(( STAMP + 60 ))"
 }
-@test "the hold honours CLAUDE_BUDGET_REFRESH" {
-    setup_stamp; FAKE_CURL_EXIT=7 refresh "$NOW" CLAUDE_BUDGET_REFRESH=120
+@test "the hold honours CLAUDE_SPEND_REFRESH" {
+    setup_stamp; FAKE_CURL_EXIT=7 refresh "$NOW" CLAUDE_SPEND_REFRESH=120
     assert_near "$(cat "$HOLD")" "$(( STAMP + 120 ))"
 }
 @test "a failure keeps the previous day's cache untouched" {
@@ -122,11 +122,11 @@ STAMP=""; setup_stamp() { STAMP=$(epoch_at "$NOW"); }
 }
 @test "CLAUDE_CONFIG_DIR is where credentials, cache and baseline live" {
     refresh "$NOW"
-    [ -e "$CFG/cache/statusline/budget-usage" ] && [ -e "$CFG/cache/statusline/budget-usage.daystart" ]
-    [ ! -e "$HOME/.claude/cache/statusline/budget-usage.tmp" ]
+    [ -e "$CFG/cache/statusline/spend-usage" ] && [ -e "$CFG/cache/statusline/spend-usage.daystart" ]
+    [ ! -e "$HOME/.claude/cache/statusline/spend-usage.tmp" ]
 }
 @test "holidays observed across New Year ride in December's cache: Christmas and New Year 2028 both land on Fridays" {
-    creds "2027-12-20 12:00:00" 3600; refresh "2027-12-20 12:00:00" CLAUDE_BUDGET_CALENDAR="$SHIPPED"
+    creds "2027-12-20 12:00:00" 3600; refresh "2027-12-20 12:00:00" CLAUDE_SPEND_CALENDAR="$SHIPPED"
     run cache_contents; assert_has "2027-12-20 " " 1111100 24 31"
 }
 @test "a garbled baseline is re-pinned rather than trusted" {

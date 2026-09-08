@@ -21,7 +21,7 @@ loc() {
     local dir="${DIR:-$REPO}" input
     input=$(printf '{"workspace":{"current_dir":"%s"},"cost":{"total_lines_added":%s,"total_lines_removed":%s}}' "$dir" "${ADDED:-0}" "${REMOVED:-0}")
     run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "$input" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY="${DISPLAY_OVERRIDE:-off}" "$@" bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_SPEND_DISPLAY="${DISPLAY_OVERRIDE:-off}" "$@" bash "$SL"
 }
 
 @test "clean repo on main: just the path and branch" {
@@ -102,7 +102,7 @@ loc() {
 @test "the directory falls back to .cwd when workspace.current_dir is absent" {
     cd "$BATS_TEST_TMPDIR"   # not the repo itself, so the $PWD fallback can't mask a miss
     run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g" | tail -1' "{\"cwd\":\"$REPO\"}" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY=off bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_SPEND_DISPLAY=off bash "$SL"
     [[ "$output" == *"/project ⎇  main" ]] || { echo "got: $output"; false; }
 }
 @test "no origin/HEAD and no main: master is the default branch" {
@@ -145,7 +145,7 @@ tail_is() { [[ "$output" == *"$1" ]] || { echo "got: $output"; echo "expected ta
 @test "hide repo: no row at all, even with churn" {
     display_file "hide repo"; git checkout -qb feature
     run bash -c 'printf "%s" "$0" | "$@" | sed "s/\x1b\[[0-9;]*m//g"' "{\"workspace\":{\"current_dir\":\"$REPO\"},\"cost\":{\"total_lines_added\":4}}" \
-        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_BUDGET_DISPLAY="$CFG/display.conf" bash "$SL"
+        env CLAUDE_CONFIG_DIR="$CFG" COLUMNS=120 CLAUDE_SPEND_DISPLAY="$CFG/display.conf" bash "$SL"
     assert_equal "$output" ""
 }
 @test "with the path and branch hidden git is not asked at all" {

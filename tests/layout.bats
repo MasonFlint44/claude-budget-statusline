@@ -42,13 +42,13 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
 }
 @test "the age tag is part of the row's width: bars shrink to make room, the row still fits" {
     printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
-    INPUT="$FULL" COLUMNS_OVERRIDE=120 render "$NOW" CLAUDE_BUDGET_REFRESH=900
+    INPUT="$FULL" COLUMNS_OVERRIDE=120 render "$NOW" CLAUDE_SPEND_REFRESH=900
     [ "${#lines[@]}" = 1 ]; [[ "${lines[0]}" == *' ·10m' ]]; [ "${#lines[0]}" -le 115 ]
     assert_equal "$(bar_width "${lines[0]}" ctx:)" 13; all_bars_equal "${lines[@]}"
-    INPUT="$FULL" COLUMNS_OVERRIDE=100 render "$NOW" CLAUDE_BUDGET_REFRESH=900
+    INPUT="$FULL" COLUMNS_OVERRIDE=100 render "$NOW" CLAUDE_SPEND_REFRESH=900
     [ "${#lines[@]}" = 2 ]; [[ "${lines[1]}" == *' ·10m' ]]; [ "${#lines[1]}" -le 95 ]; all_bars_equal "${lines[@]}"
 }
-@test "two rows without a ctx bar: the model alone on row 1, the budget row sets the width" {
+@test "two rows without a ctx bar: the model alone on row 1, the spend row sets the width" {
     INPUT='{"model":{"display_name":"Opus"}}' COLUMNS_OVERRIDE=40 render "$NOW"
     [ "${#lines[@]}" = 2 ]; assert_equal "${lines[0]}" "Opus"; [[ "${lines[1]}" == off:* ]]; all_bars_equal "${lines[@]}"
 }
@@ -93,14 +93,14 @@ at_width() { INPUT="$FULL" COLUMNS_OVERRIDE="$1" render "$NOW"; }
 @test "session cost needs the ctx bar to hang on" {
     INPUT='{"model":{"display_name":"Opus"},"cost":{"total_cost_usd":1.5}}' render "$NOW"; assert_lacks '$1.50'
 }
-@test "budget money formats by magnitude too: \$1.2k of \$5.0k" {
+@test "spend money formats by magnitude too: \$1.2k of \$5.0k" {
     cache_line "$NOW" "1234 1800 5000 1111100 7"; render "$NOW"; assert_has '$1.8k/$5.0k' '$1.2k/'
 }
-@test "budget bars alone: no model, no ctx" {
+@test "spend bars alone: no model, no ctx" {
     INPUT='{}' render "$NOW"; [ "${#lines[@]}" = 1 ]; [[ "${lines[0]}" == off:* ]]; assert_has "month:"
 }
 @test "the repo line is on with no display file and off with hide repo" {
-    run _render "$FULL" "$NOW" CLAUDE_BUDGET_DISPLAY=off; [ "${#lines[@]}" = 2 ]; assert_has "/tmp"
+    run _render "$FULL" "$NOW" CLAUDE_SPEND_DISPLAY=off; [ "${#lines[@]}" = 2 ]; assert_has "/tmp"
     run _render "$FULL" "$NOW"; [ "${#lines[@]}" = 1 ]
 }
 @test "a percentage past 999 pegs the label" {

@@ -20,7 +20,7 @@
     "should_trigger": true
   },
   {
-    "query": "what else can the budget statusline show that I'm not seeing",
+    "query": "what else can the spend statusline show that I'm not seeing",
     "should_trigger": true
   },
   {
@@ -40,15 +40,15 @@
     "should_trigger": true
   },
   {
-    "query": "install the budget statusline",
+    "query": "install the spend statusline",
     "should_trigger": false
   },
   {
-    "query": "my budget bars are blank this morning",
+    "query": "my spend bars are blank this morning",
     "should_trigger": false
   },
   {
-    "query": "add PTO next week to my budget calendar",
+    "query": "add PTO next week to my spend calendar",
     "should_trigger": false
   },
   {

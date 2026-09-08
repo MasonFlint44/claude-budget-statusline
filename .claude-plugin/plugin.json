@@ -1,12 +1,12 @@
 {
-  "name": "budget-statusline",
-  "displayName": "Budget Statusline",
-  "version": "2.6.3",
-  "description": "Claude Code statusline with daily + monthly spend budget bars read from the same numbers the /usage page shows. Install with /budget-statusline:install; edit the work week, holidays and PTO with /budget-statusline:calendar; choose which elements show with /budget-statusline:display.",
+  "name": "spend-statusline",
+  "displayName": "Spend Statusline",
+  "version": "2.7.0",
+  "description": "Claude Code statusline with daily + monthly spend bars read from the same numbers the /usage page shows. Install with /spend-statusline:install; edit the work week, holidays and PTO with /spend-statusline:calendar; choose which elements show with /spend-statusline:display.",
   "author": { "name": "Mason Flint" },
   "license": "MIT",
-  "homepage": "https://github.com/MasonFlint44/claude-budget-statusline",
-  "repository": "https://github.com/MasonFlint44/claude-budget-statusline",
-  "keywords": ["statusline", "budget", "usage", "spend"],
+  "homepage": "https://github.com/MasonFlint44/claude-spend-statusline",
+  "repository": "https://github.com/MasonFlint44/claude-spend-statusline",
+  "keywords": ["statusline", "spend", "usage", "cost"],
   "skills": "./skills/"
 }

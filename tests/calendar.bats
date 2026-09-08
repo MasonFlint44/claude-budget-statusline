@@ -41,7 +41,7 @@ load helpers
 @test "BOM, CRLF, # inside names, bare observe, spaced lists, uppercase keywords" { golden oddities-2026 oddities.conf 2026; }
 
 # --- knob and clock ---
-@test "CLAUDE_BUDGET_CALENDAR=off: mon-fri, no holidays" { golden off off 2026; }
+@test "CLAUDE_SPEND_CALENDAR=off: mon-fri, no holidays" { golden off off 2026; }
 @test "missing file: mon-fri, no holidays" { golden missing /nonexistent/calendar.conf 2026; }
 @test "month line on local time: Fri 09-04 20:00 Chicago, 18 remaining" { AT="2026-09-04 20:00:00" golden tz-chicago shipped ""; }
-@test "month line on the budget clock: same instant is Sat in Auckland, 17 remaining" { AT="2026-09-04 20:00:00" golden tz-auckland shipped "" CLAUDE_BUDGET_TZ=Pacific/Auckland; }
+@test "month line on the spend clock: same instant is Sat in Auckland, 17 remaining" { AT="2026-09-04 20:00:00" golden tz-auckland shipped "" CLAUDE_SPEND_TZ=Pacific/Auckland; }

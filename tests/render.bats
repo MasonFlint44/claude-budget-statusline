@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# The budget line, rendered from a hand-written cache line. Cache line fields
+# The spend line, rendered from a hand-written cache line. Cache line fields
 # after "<date> <stamp>": <today$> <month$> <limit$> <workday-mask> <holiday doms...>
 load helpers
 setup() { fresh_config; }
@@ -24,13 +24,13 @@ setup() { fresh_config; }
     cache_line "2026-09-14 09:30:00" "20 120 400 1111100 7"; render "2026-09-14 09:30:00"
     assert_has "day:" " 87% " '$20/$23'
 }
-@test "budget clock: Fri 20:00 Chicago is still Friday locally" {
+@test "spend clock: Fri 20:00 Chicago is still Friday locally" {
     cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7"; render "2026-09-04 20:00:00"
     assert_has "day:"
 }
-@test "budget clock: the same instant is Saturday in Auckland" {
-    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7" CLAUDE_BUDGET_TZ=Pacific/Auckland
-    render "2026-09-04 20:00:00" CLAUDE_BUDGET_TZ=Pacific/Auckland
+@test "spend clock: the same instant is Saturday in Auckland" {
+    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7" CLAUDE_SPEND_TZ=Pacific/Auckland
+    render "2026-09-04 20:00:00" CLAUDE_SPEND_TZ=Pacific/Auckland
     assert_has "off:"
 }
 @test "month past the limit: pegged bar, overage tag, no day denominator" {
@@ -81,15 +81,15 @@ setup() { fresh_config; }
     cache_line "$NOW" "3.25 120 400 1111100"; render "$NOW"; assert_has "off:" " 21% " '$3.25/$16'
 }
 @test "the cached limit renders even when the override differs; the override lands at the next refresh" {
-    cache_line "$NOW" "3.25 120 400 1111100 7"; render "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=250; assert_has '$120/$400'
+    cache_line "$NOW" "3.25 120 400 1111100 7"; render "$NOW" CLAUDE_SPEND_MONTHLY_LIMIT=250; assert_has '$120/$400'
 }
 @test "a non-numeric limit in the cache: bars hidden unless the override supplies one" {
     cache_line "$NOW" "3.25 120 lots 1111100 7"; render "$NOW"; assert_lacks "month:"
-    render "$NOW" CLAUDE_BUDGET_MONTHLY_LIMIT=250; assert_has '$120/$250'
+    render "$NOW" CLAUDE_SPEND_MONTHLY_LIMIT=250; assert_has '$120/$250'
 }
-@test "an unknown CLAUDE_BUDGET_TZ means UTC: Fri 20:00 Chicago is Saturday there" {
-    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7" CLAUDE_BUDGET_TZ=Nowhere/Land
-    render "2026-09-04 20:00:00" CLAUDE_BUDGET_TZ=Nowhere/Land; assert_has "off:"
+@test "an unknown CLAUDE_SPEND_TZ means UTC: Fri 20:00 Chicago is Saturday there" {
+    cache_line "2026-09-04 20:00:00" "1 100 400 1111100 7" CLAUDE_SPEND_TZ=Nowhere/Land
+    render "2026-09-04 20:00:00" CLAUDE_SPEND_TZ=Nowhere/Land; assert_has "off:"
 }
 @test "a context percentage in exponent form rounds like any other" {
     INPUT='{"context_window":{"used_percentage":1e-07}}' render "$NOW"; assert_status 0; assert_has "ctx:"; [[ "$output" == *" 0%" ]]
@@ -100,22 +100,22 @@ setup() { fresh_config; }
 # --- the staleness tag: today's figures, but no successful fetch for a while ---
 aged_cache() { printf '2026-09-05 %s 3.25 120 400 1111100 7\n' "$(( $(epoch_at "$NOW") - $1 ))" > "$(cache_path)"; }   # aged_cache SECONDS
 @test "a cache under five minutes old carries no age tag" {
-    aged_cache 297; render "$NOW" CLAUDE_BUDGET_REFRESH=600; assert_has "month:"; assert_lacks "·"   # 297: the fake clock can run a second or two ahead
+    aged_cache 297; render "$NOW" CLAUDE_SPEND_REFRESH=600; assert_has "month:"; assert_lacks "·"   # 297: the fake clock can run a second or two ahead
 }
 @test "at five minutes the age tag appears after the bars, in minutes" {
-    aged_cache 300; render "$NOW" CLAUDE_BUDGET_REFRESH=600; [[ "$output" == *'$120/$400 ·5m' ]]
-    aged_cache 754; render "$NOW" CLAUDE_BUDGET_REFRESH=900; [[ "$output" == *' ·12m' ]]
+    aged_cache 300; render "$NOW" CLAUDE_SPEND_REFRESH=600; [[ "$output" == *'$120/$400 ·5m' ]]
+    aged_cache 754; render "$NOW" CLAUDE_SPEND_REFRESH=900; [[ "$output" == *' ·12m' ]]
 }
 @test "from an hour on the tag counts hours" {
-    aged_cache 3600; render "$NOW" CLAUDE_BUDGET_REFRESH=7200; [[ "$output" == *' ·1h' ]]
-    aged_cache 11000; render "$NOW" CLAUDE_BUDGET_REFRESH=20000; [[ "$output" == *' ·3h' ]]
+    aged_cache 3600; render "$NOW" CLAUDE_SPEND_REFRESH=7200; [[ "$output" == *' ·1h' ]]
+    aged_cache 11000; render "$NOW" CLAUDE_SPEND_REFRESH=20000; [[ "$output" == *' ·3h' ]]
 }
 @test "the tag is dim and follows the overage tag when there is one" {
     printf '2026-09-05 %s 3.25 420 400 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
-    render "$NOW" CLAUDE_BUDGET_REFRESH=900; [[ "$output" == *'+$20 ·10m' ]]
-    run _render_raw "$INPUT_DEFAULT" "$NOW" CLAUDE_BUDGET_REFRESH=900; assert_has $'\033[2m·10m\033[0m'
+    render "$NOW" CLAUDE_SPEND_REFRESH=900; [[ "$output" == *'+$20 ·10m' ]]
+    run _render_raw "$INPUT_DEFAULT" "$NOW" CLAUDE_SPEND_REFRESH=900; assert_has $'\033[2m·10m\033[0m'
 }
-@test "no tag on the bare line when the budget bars are hidden" {
+@test "no tag on the bare line when the spend bars are hidden" {
     printf '2026-09-05 %s 3.25 120 0 1111100 7\n' "$(( $(epoch_at "$NOW") - 600 ))" > "$(cache_path)"
-    render "$NOW" CLAUDE_BUDGET_REFRESH=900; assert_lacks "month:" "·"
+    render "$NOW" CLAUDE_SPEND_REFRESH=900; assert_lacks "month:" "·"
 }

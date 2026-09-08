@@ -4,6 +4,23 @@ Versions follow the `version` field in `.claude-plugin/plugin.json`; Claude
 Code offers a plugin update when that field changes. Each version is a git
 tag (`v2.2.0`) and a GitHub release with this section as its notes.
 
+## 2.7.0 — 2026-09-08
+
+- **Renamed to `claude-spend-statusline`.** The plugin is `spend-statusline`,
+  the script is `statusline/spend-statusline.sh`, and the skills are
+  `/spend-statusline:install`, `:calendar`, `:display` and `:doctor` (were
+  `/budget-statusline:...`).
+- **Environment knobs renamed**: `CLAUDE_SPEND_MONTHLY_LIMIT`,
+  `CLAUDE_SPEND_CALENDAR`, `CLAUDE_SPEND_DISPLAY`, `CLAUDE_SPEND_REFRESH`,
+  `CLAUDE_SPEND_TZ` (were `CLAUDE_BUDGET_*`).
+- **Cache files renamed**: `spend-usage`, `spend-usage.daystart`,
+  `spend-usage.lock`, `spend-usage.hold` (were `budget-usage*`).
+- The old names are **not** accepted: there is no fallback for
+  `CLAUDE_BUDGET_*`, no alias for the old skill names, and the old cache
+  files are ignored (the first render after updating refetches). Re-run
+  `/spend-statusline:install` after updating the plugin so `statusLine` in
+  `settings.json` points at the renamed script.
+
 ## 2.6.3 — 2026-09-06
 
 - Doctor skill quotes the doctor's block through its `bars:` verdict instead

@@ -1,2 +1,2 @@
 Opus · high | ctx:█████░░░░░░ 43% $3.72 · cache 42m | day:███████░░░░ 64% $9.40/$15 month:██│█░░░░░░░ 36% $143/$400
-~/claude-budget-statusline ⎇  feature/preview · pending +16 · vs main +30 · session +118/-27
+~/claude-spend-statusline ⎇  feature/preview · pending +16 · vs main +30 · session +118/-27
